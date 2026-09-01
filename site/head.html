@@ -54,7 +54,8 @@ button{font-family:inherit;color:inherit}
 
 /* ---------- sidebar ---------- */
 .side{background:var(--side);border-right:1px solid var(--grid);padding:20px 14px 16px;
-  display:flex;flex-direction:column;gap:14px;min-height:0}
+  display:flex;flex-direction:column;gap:14px;min-height:0;
+  position:sticky;top:0;align-self:start;max-height:100vh;overflow-y:auto}
 .brand-row{display:flex;align-items:center;gap:10px;padding:0 6px}
 .logo{width:34px;height:34px;border-radius:10px;background:var(--accent);color:#fff;
   display:flex;align-items:center;justify-content:center;flex:none}
@@ -87,7 +88,10 @@ button{font-family:inherit;color:inherit}
 .team-chips button.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
 .sortrow{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);padding:0 2px}
 .sortrow select{flex:1;padding:5px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:12px}
-.plist{overflow-y:auto;flex:1;min-height:120px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh)}
+.plist{overflow-y:auto;flex:1;min-height:120px;max-height:480px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh);overscroll-behavior:contain}
+.plist::-webkit-scrollbar{width:8px}
+.plist::-webkit-scrollbar-thumb{background:var(--grid);border-radius:4px}
+.plist::-webkit-scrollbar-thumb:hover{background:var(--muted)}
 .plist button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;
   background:transparent;padding:7.5px 12px;cursor:pointer;border-bottom:1px solid var(--grid);font-size:12.5px}
 .plist button:last-child{border-bottom:0}

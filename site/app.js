@@ -100,6 +100,7 @@ function renderList(){
     `<button data-id="${p.id}" class="${p.id===state.sel?"on":""}">
       <span class="nm">${esc(p.name)}</span><span class="tm">${teamBadge(p.team,16)}</span><span class="mv num">${sideMetric(p)}</span></button>`).join("");
   $("#plist").querySelectorAll("button").forEach(b=>b.onclick=()=>{state.sel=+b.dataset.id;renderList();});
+  const onBtn=$("#plist button.on"); if(onBtn) onBtn.scrollIntoView({block:"nearest"});
   $("#countNote").textContent = `${L.length}명 표시 · 전체 ${state.mode==="P"?"투수":"타자"} 집계 (백분위는 200구+ 분포 기준)`;
   renderReport();
 }
