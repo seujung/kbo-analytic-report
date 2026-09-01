@@ -824,11 +824,15 @@ const chat = {hist:[], busy:false, init:false};
 function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function lsSet(k,v){try{if(v)localStorage.setItem(k,v);else localStorage.removeItem(k)}catch(e){}}
 function glmCfg(){
-  return {
-    key:   (lsGet("glm_key")   || GLMCFG.key   || "").trim(),
+  /* .env로 빌드에 주입된 설정이 있으면 항상 우선 — 브라우저 저장값은 .env 미설정 시에만 사용 */
+  if(GLMCFG.key){
+    return { key: GLMCFG.key.trim(), env: true,
+      model: (GLMCFG.model||"glm-5.3-flash").trim(),
+      base:  (GLMCFG.base||"https://open.bigmodel.cn/api/paas/v4").trim().replace(/\/+$/,"") };
+  }
+  return { key: (lsGet("glm_key")||"").trim(), env: false,
     model: (lsGet("glm_model") || GLMCFG.model || "glm-5.3-flash").trim(),
-    base:  (lsGet("glm_base")  || GLMCFG.base  || "https://open.bigmodel.cn/api/paas/v4").trim().replace(/\/+$/,"")
-  };
+    base:  (lsGet("glm_base")  || GLMCFG.base  || "https://open.bigmodel.cn/api/paas/v4").trim().replace(/\/+$/,"") };
 }
 function ctxPlayer(p,isP){
   const lines=[];
@@ -911,7 +915,12 @@ async function chatSend(){
     chat.hist.push({role:"user",content:q},{role:"assistant",content:acc});
   }catch(e){
     el.remove();
-    addMsg("err","요청 실패: "+e.message+"\n브라우저에서 API를 직접 호출하므로 키·모델명·Base URL 또는 네트워크(CORS) 문제일 수 있습니다. ⚙ 설정에서 확인해 주세요.");
+    let hint="브라우저에서 API를 직접 호출하므로 키·모델명·Base URL 또는 네트워크(CORS) 문제일 수 있습니다. ⚙ 설정에서 확인해 주세요.";
+    const m=e.message||"";
+    if(m.includes("1113")||m.includes("Insufficient balance")) hint=`계정에 사용 가능한 크레딧/리소스 패키지가 없다는 응답입니다.\n① Base URL(${cfg.base})이 키 발급 플랫폼과 일치하는지 확인 (bigmodel.cn 키 ↔ open.bigmodel.cn, z.ai 키 ↔ api.z.ai)\n② 해당 플랫폼 콘솔에서 모델 "${cfg.model}"의 무료 할당/크레딧 확인\n③ 무료 모델(예: flash 계열)로 모델명 변경 시도`;
+    else if(m.includes("401")||m.includes("invalid")) hint="API Key가 잘못되었거나 만료되었습니다. 키와 Base URL 발급처가 일치하는지 확인하세요.";
+    else if(m.includes("Failed to fetch")) hint="네트워크/CORS 차단으로 보입니다. 로컬 파일 또는 GitHub Pages에서 열었는지, Base URL이 정확한지 확인하세요.";
+    addMsg("err","요청 실패: "+m+"\n"+hint);
   }
   chat.busy=false; $("#chatSend").disabled=false;
 }
@@ -930,11 +939,21 @@ function initChat(){
   $("#chatNew").onclick=()=>{ chat.hist=[]; $("#chatMsgs").innerHTML=""; addMsg("sys","새 대화 시작 — 현재 컨텍스트: "+chatContext().label); };
   $("#chatSettings").onclick=()=>{
     const c=$("#chatCfg"); c.hidden=!c.hidden;
-    if(!c.hidden){ $("#cfgKey").value=lsGet("glm_key")||""; $("#cfgModel").value=lsGet("glm_model")||GLMCFG.model||"glm-5.3-flash"; $("#cfgBase").value=lsGet("glm_base")||GLMCFG.base||"https://open.bigmodel.cn/api/paas/v4"; }
+    if(!c.hidden){
+      const cfg=glmCfg(); const lock=cfg.env;
+      $("#cfgEnvNote").hidden=!lock;
+      ["cfgKey","cfgModel","cfgBase"].forEach(id=>$("#"+id).disabled=lock);
+      if(lock){ $("#cfgKey").value="(.env 설정 사용 중)"; $("#cfgModel").value=cfg.model; $("#cfgBase").value=cfg.base; }
+      else { $("#cfgKey").value=lsGet("glm_key")||""; $("#cfgModel").value=lsGet("glm_model")||GLMCFG.model||"glm-5.3-flash"; $("#cfgBase").value=lsGet("glm_base")||GLMCFG.base||"https://open.bigmodel.cn/api/paas/v4"; }
+    }
   };
   $("#cfgSave").onclick=e=>{ e.preventDefault();
+    if(glmCfg().env){ $("#chatCfg").hidden=true; return; }
     lsSet("glm_key",$("#cfgKey").value.trim()); lsSet("glm_model",$("#cfgModel").value.trim()); lsSet("glm_base",$("#cfgBase").value.trim());
     $("#chatCfg").hidden=true; addMsg("sys","설정이 이 브라우저에 저장되었습니다."); };
+  $("#cfgReset").onclick=e=>{ e.preventDefault();
+    ["glm_key","glm_model","glm_base"].forEach(k=>lsSet(k,""));
+    $("#chatCfg").hidden=true; addMsg("sys","브라우저 저장값을 초기화했습니다. 이제 .env(빌드) 설정 또는 기본값이 사용됩니다."); };
   $("#chatForm").onsubmit=e=>{ e.preventDefault(); chatSend(); };
   $("#chatInput").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); chatSend(); } });
 }
