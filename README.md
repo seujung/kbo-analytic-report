@@ -144,7 +144,7 @@ AI 모델과 대화할 수 있습니다. 엔드포인트는 Google Gemini API의
 1. **로컬 빌드용** — 저장소 루트에 `.env` 파일 생성 후 재빌드 (`env.example` 참고):
    ```
    GLM_API_KEY=발급받은키               # https://aistudio.google.com/apikey 에서 무료 발급
-   GLM_MODEL=gemini-2.5-flash         # 대안: gemini-2.5-flash-lite, gemma-3-27b-it (ai.google.dev/models)
+   GLM_MODEL=gemini-3.5-flash-lite         # 대안: gemini-3.5-flash, gemma-3-27b-it (ai.google.dev/models)
    GLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
    ```
    `python site/build.py` 실행 시 키가 `docs/index.html`에 주입됩니다. **`.env`를 만들거나 수정한 뒤에는 반드시 재빌드해야 반영됩니다.**
