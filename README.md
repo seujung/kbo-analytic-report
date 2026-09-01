@@ -30,7 +30,8 @@ baseball/
 │   ├── head.html             # <head> 내용 (타이틀·폰트·전체 CSS)
 │   ├── body.html             # 페이지 마크업 (사이드바·메인 레이아웃)
 │   ├── app.js                # 앱 로직 (JSON은 __DATA__ 등 플레이스홀더로 임베드)
-│   └── build.py              # 템플릿 + JSON → docs/index.html 생성
+│   ├── logos/                # 구단 로고 파일 (선택) — 빌드 시 자동 임베드
+│   └── build.py              # 템플릿 + JSON(+로고) → docs/index.html 생성
 ├── docs/                     # GitHub Pages 배포 대상 (Settings에서 main /docs 지정)
 │   ├── index.html            # 빌드된 단일 파일 리포트 (~1.6MB, 의존성 없음)
 │   └── .nojekyll
@@ -119,6 +120,15 @@ git push origin dev
 
 푸시 후 1~2분이면 Pages에 반영됩니다.
 디자인·기능을 수정할 때는 `site/`의 템플릿을 고친 뒤 ③~④만 다시 하면 됩니다.
+
+### 구단 로고 넣기 (선택)
+
+`site/logos/` 폴더에 팀 이름으로 이미지 파일을 넣고 다시 빌드(③)하면 자동으로 페이지에 임베드됩니다.
+
+- 파일명: 리포트의 팀 표기 그대로 — `KIA.png`, `두산.png`, `LG.png`, `삼성.jpg`, `SSG.png`, `롯데.png`, `NC.png`, `KT.png`, `키움.png`, `한화.png`
+- 별칭도 인식: `엘지`→LG, `기아`→KIA, `엔씨`→NC, `케이티`→KT, `베어스`→두산, `트윈스`→LG, `라이온즈`→삼성 등
+- png/jpg/webp/gif 지원, 빌드 시 96px로 리사이즈되어 용량 부담 없음 (Pillow 필요: `pip install pillow`)
+- 파일이 없는 팀은 구단 브랜드 컬러 모노그램 배지로 표시됩니다
 
 Claude 아티팩트 버전을 함께 쓰는 경우, 이 저장소가 연결된 Claude 세션에서
 "나인존 리포트 아티팩트 업데이트해줘"라고 요청하면 같은 아티팩트 URL로 재게시됩니다.

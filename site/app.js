@@ -18,7 +18,10 @@ const TEAM_META = {
   "키움":{c:"#570514",t:"#ffffff",s:"키"},
   "한화":{c:"#F05A22",t:"#ffffff",s:"한"}
 };
+const TEAM_LOGOS = __LOGOS__; /* build 시 site/logos/의 이미지가 data URI로 임베드됨 */
 function teamBadge(team,size=18){
+  const src = TEAM_LOGOS[team];
+  if(src) return `<img class="tlogo" alt="${team}" title="${team}" src="${src}" style="width:${size+4}px;height:${size+4}px">`;
   const m=TEAM_META[team];
   if(!m) return "";
   const fs = m.s.length>=3 ? size*0.34 : m.s.length===2 ? size*0.42 : size*0.5;
