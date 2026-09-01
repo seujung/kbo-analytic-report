@@ -887,8 +887,22 @@ async function chatSend(){
   try{
     const headers={"Content-Type":"application/json","Authorization":"Bearer "+cfg.key};
     if(cfg.base.includes("openrouter")) headers["X-Title"]="NineZone Report";
-    const res=await fetch(cfg.base+"/chat/completions",{method:"POST",headers,
-      body:JSON.stringify({model:cfg.model,messages:msgs,stream:true,temperature:0.4})});
+    let res, attempt=0;
+    const MAXR=3; /* 429(무료 모델 혼잡) 자동 재시도 */
+    while(true){
+      res=await fetch(cfg.base+"/chat/completions",{method:"POST",headers,
+        body:JSON.stringify({model:cfg.model,messages:msgs,stream:true,temperature:0.4})});
+      if(res.status===429 && attempt<MAXR-1){
+        attempt++;
+        const wait=2500*attempt;
+        el.textContent=`… 모델이 혼잡합니다. ${wait/1000}초 후 재시도 (${attempt}/${MAXR-1})`;
+        await res.text().catch(()=>{});
+        await new Promise(r=>setTimeout(r,wait));
+        el.textContent="…";
+        continue;
+      }
+      break;
+    }
     if(!res.ok){ const t=await res.text().catch(()=>""); throw new Error(`HTTP ${res.status} ${t.slice(0,180)}`); }
     let acc="";
     const ct=(res.headers.get("content-type")||"");
@@ -918,7 +932,8 @@ async function chatSend(){
     el.remove();
     let hint="브라우저에서 API를 직접 호출하므로 키·모델명·Base URL 또는 네트워크(CORS) 문제일 수 있습니다. ⚙ 설정에서 확인해 주세요.";
     const m=e.message||"";
-    if(m.includes("402")||m.includes("1113")||m.includes("Insufficient")) hint=`크레딧 부족 응답입니다. OpenRouter 콘솔(openrouter.ai)에서 크레딧을 확인하거나, 무료 모델(모델 ID 뒤에 :free가 붙는 모델)로 바꿔보세요. 현재 모델: ${cfg.model}`;
+    if(m.includes("rate-limited")||m.includes("429")) hint=`무료 모델(${cfg.model})이 일시적으로 혼잡해 자동 재시도(2회)에도 실패했습니다.\n① 잠시 후(수십 초~수 분) 다시 시도\n② ⚙ 설정 또는 .env에서 다른 :free 모델로 변경 (openrouter.ai/models 에서 free 필터)\n③ OpenRouter에 소액 크레딧을 충전하면 무료 모델의 할당량도 늘어납니다`;
+    else if(m.includes("402")||m.includes("1113")||m.includes("Insufficient")) hint=`크레딧 부족 응답입니다. OpenRouter 콘솔(openrouter.ai)에서 크레딧을 확인하거나, 무료 모델(모델 ID 뒤에 :free가 붙는 모델)로 바꿔보세요. 현재 모델: ${cfg.model}`;
     else if(m.includes("401")||m.includes("invalid")||m.includes("No auth")) hint="API Key가 잘못되었거나 만료되었습니다. OpenRouter 키(sk-or-...)인지, Base URL("+cfg.base+")과 발급처가 일치하는지 확인하세요.";
     else if(m.includes("404")||m.includes("not found")||m.includes("No endpoints")) hint=`모델 ID "${cfg.model}"를 찾을 수 없습니다. openrouter.ai/models 에서 정확한 모델 ID를 확인해 .env의 GLM_MODEL을 수정 후 재빌드하세요.`;
     else if(m.includes("Failed to fetch")) hint="네트워크/CORS 차단으로 보입니다. 로컬 파일 또는 GitHub Pages에서 열었는지, Base URL이 정확한지 확인하세요.";
