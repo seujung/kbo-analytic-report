@@ -147,12 +147,12 @@ GLM 모델과 대화할 수 있습니다.
    GLM_MODEL=glm-5.3-flash
    GLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4
    ```
-   `python site/build.py` 실행 시 키가 `docs/index.html`에 주입됩니다.
+   `python site/build.py` 실행 시 키가 `docs/index.html`에 주입됩니다. **`.env`를 만들거나 수정한 뒤에는 반드시 재빌드해야 반영됩니다.**
 2. **배포 페이지용** — 챗 패널의 ⚙ 설정에서 키를 입력하면 해당 브라우저(localStorage)에만 저장됩니다.
 
 주의사항:
 
-- **`.env`에 키를 넣고 빌드한 `docs/index.html`에는 키가 그대로 들어갑니다. 그 상태로 공개 저장소에 푸시하면 키가 노출되므로, 공개 배포 시에는 `.env` 없이 빌드하고 방법 2(⚙ 설정)를 사용하세요.** `.env` 자체는 `.gitignore`에 포함되어 커밋되지 않습니다.
+- **`.env`에 키를 넣고 빌드한 `docs/index.html`에는 키가 그대로 들어갑니다. git push 전에는 반드시 `python site/build.py --public` 으로 재빌드해서 키 없는 버전을 커밋하세요.** `.env` 자체는 `.gitignore`에 포함되어 커밋되지 않습니다.
 - 브라우저에서 GLM API를 직접 호출하므로, API 서버가 브라우저 교차 출처 요청(CORS)을 허용해야 합니다. 호출 실패 시 챗 패널에 원인이 표시됩니다.
 
 ## 지표 정의 (근사값)

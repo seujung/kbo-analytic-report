@@ -78,13 +78,18 @@ if env_path.exists():
             continue
         k, v = line.split("=", 1)
         env[k.strip()] = v.strip().strip('"').strip("'")
-glmcfg = {"key": env.get("GLM_API_KEY", ""),
+import sys
+PUBLIC = "--public" in sys.argv  # 공개 배포용: 키를 임베드하지 않음 (푸시 전 필수!)
+glmcfg = {"key": "" if PUBLIC else env.get("GLM_API_KEY", ""),
           "model": env.get("GLM_MODEL", "glm-5.3-flash"),
           "base": env.get("GLM_BASE_URL", "https://open.bigmodel.cn/api/paas/v4")}
 assert "__GLMCFG__" in app
 app = app.replace("__GLMCFG__", _json.dumps(glmcfg))
 if glmcfg["key"]:
-    print("⚠ 경고: GLM API Key가 docs/index.html에 포함됩니다. 이 상태로 공개 저장소에 푸시하면 키가 노출됩니다!")
+    print("⚠ 경고: GLM API Key가 docs/index.html에 포함됩니다 (로컬 전용).")
+    print("⚠ git push 전에는 반드시 `python site/build.py --public` 으로 재빌드하세요 — 키 노출 방지!")
+elif PUBLIC:
+    print("GLM 챗: --public 빌드 — 키 미포함 (페이지 ⚙ 설정에서 키 입력)")
 else:
     print("GLM 챗: .env에 GLM_API_KEY 없음 — 페이지 ⚙ 설정에서 키 입력 가능")
 
