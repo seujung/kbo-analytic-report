@@ -24,7 +24,8 @@ baseball/
 │       ├── agg.py            # 공통 전처리 (존 판정, 타석 결과, RV) → df_cache.pkl
 │       ├── agg2.py           # 선수별 집계 → aggregate.json
 │       ├── agg3.py           # 상대 전적 집계 → matchups.json
-│       └── agg4.py           # 투구 패턴 집계 → patterns.json
+│       ├── agg4.py           # 투구 패턴 집계 → patterns.json
+│       └── agg5.py           # 월별 집계 → monthly.json
 ├── site/                     # 3단계: 리포트 페이지 템플릿 + 빌드 스크립트
 │   ├── head.html             # <head> 내용 (타이틀·폰트·전체 CSS)
 │   ├── body.html             # 페이지 마크업 (사이드바·메인 레이아웃)
@@ -66,6 +67,7 @@ python output/_analysis/agg.py     # 전 경기 로드 + 공통 전처리 → df
 python output/_analysis/agg2.py    # 선수별 구종×존 집계        → aggregate.json (~650KB)
 python output/_analysis/agg3.py    # 투수×타자 상대 전적         → matchups.json  (~740KB)
 python output/_analysis/agg4.py    # 투수별 투구 패턴            → patterns.json  (~120KB)
+python output/_analysis/agg5.py    # 선수·리그 월별 집계          → monthly.json   (~80KB)
 ```
 
 | 스크립트 | 하는 일 | 산출물 |
@@ -74,8 +76,9 @@ python output/_analysis/agg4.py    # 투수별 투구 패턴            → patt
 | `agg2.py` | 투수/타자별(200구 이상) 구종×존 집계, 리그 기준선, 백분위 | `aggregate.json` |
 | `agg3.py` | 투수×타자 페어별 상대 전적 (타석 1회 이상) | `matchups.json` |
 | `agg4.py` | 카운트별 구종 선택(12분류), 타석 내 구종 시퀀스 전이, 좌/우타자별 구사율 | `patterns.json` |
+| `agg5.py` | 선수별·리그 월별 성적 (월별 흐름 카드, 월별 리그 트렌드에 사용) | `monthly.json` |
 
-`agg2~4`는 `df_cache.pkl`을 읽으므로 새 경기를 수집했다면 반드시 `agg.py`부터 다시 실행합니다.
+`agg2~5`는 `df_cache.pkl`을 읽으므로 새 경기를 수집했다면 반드시 `agg.py`부터 다시 실행합니다.
 
 ## 3단계 — GitHub Pages 배포
 
@@ -107,6 +110,7 @@ python output/_analysis/agg.py                  # ② 집계 (4개 순서대로)
 python output/_analysis/agg2.py
 python output/_analysis/agg3.py
 python output/_analysis/agg4.py
+python output/_analysis/agg5.py
 python site/build.py                            # ③ docs/index.html 재빌드
 git add output/_analysis/*.json docs/index.html # ④ 커밋 & 푸시 → 자동 재배포
 git commit -m "데이터 갱신: ~2026-08-31"

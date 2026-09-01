@@ -1,6 +1,7 @@
 const DATA = __DATA__;
 const MATCH = __MATCH__; /* "pid_bid": [n,sw,wf,pa,K,BB,HBP,1B,2B,3B,HR,woba_n,woba_d] */
 const PATTERN = __PATTERN__; /* counts_order, league:{cnt:{type:share}}, pitchers:{pid:{counts,seq,stance}} */
+const MONTHLY = __MONTHLY__; /* months[], league:[rec], pitchers/batters:{id:[rec|null]} — rec=[n,pa,K,BB,HBP,SF,H,HR,wn,wd,sw,wf,velo] */
 
 /* ---------- constants ---------- */
 const PITCH_COLOR = {"직구":"--c8","투심":"--c2","커터":"--c4","슬라이더":"--c7","스위퍼":"--c5","커브":"--c1","체인지업":"--c6","포크":"--c3","너클볼":"--c0"};
@@ -164,6 +165,92 @@ function arsenalTable(p){
     : "RV/100 = 100구당 기대득점 변화(타자 기준, <b>양수일수록 타자에게 유리</b>). 행에 마우스를 올리면 해당 구종의 리그 평균.";
   return `<div class="card"><h2>${isP?"구종 아스널":"구종별 대응"}</h2><p class="cap">${cap}</p>
     <div class="tscroll"><table class="tb"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
+/* ---------- monthly trends ---------- */
+const M_IDX = {n:0,pa:1,K:2,BB:3,HBP:4,SF:5,H:6,HR:7,wn:8,wd:9,sw:10,wf:11,velo:12};
+const mLabel = m => parseInt(m.slice(5),10)+"월";
+function mStat(r,k){
+  if(!r) return null;
+  const g=i=>r[i];
+  switch(k){
+    case "woba": return g(9)>=10 ? g(8)/g(9) : null;
+    case "k":    return g(1)>=15 ? g(2)/g(1) : null;
+    case "bb":   return g(1)>=15 ? g(3)/g(1) : null;
+    case "whiff":return g(10)>=15 ? g(11)/g(10) : null;
+    case "avg":  { const ab=g(1)-g(3)-g(4)-g(5); return (g(1)>=15&&ab>0) ? g(6)/ab : null; }
+    case "velo": return g(0)>=50 ? g(12) : null;
+    default: return null;
+  }
+}
+function monthlyCard(p){
+  const src = state.mode==="P"?MONTHLY.pitchers:MONTHLY.batters;
+  const arr = src[String(p.id)];
+  if(!arr) return "";
+  const isP = state.mode==="P";
+  const cols = isP
+    ? [["woba","피wOBA",-1,"f3",0.07],["k","K%",1,"pr",0.08],["bb","BB%",-1,"pr",0.05],["whiff","Whiff%",1,"pr",0.08],["velo","평균구속",0,"v",0]]
+    : [["woba","wOBA",1,"f3",0.07],["avg","타율",1,"f3",0.06],["k","K%",-1,"pr",0.08],["bb","BB%",1,"pr",0.05],["whiff","Whiff%",-1,"pr",0.08]];
+  const rows = MONTHLY.months.map((m,i)=>{
+    const r=arr[i]; if(!r||r[0]<10) return "";
+    const lgR=MONTHLY.league[i];
+    const tds = cols.map(([k,,dir,kind,scale])=>{
+      const v=mStat(r,k);
+      if(v==null) return `<td class="num" style="color:var(--muted)">—</td>`;
+      if(kind==="v") return `<td class="num">${f1(v)}</td>`;
+      const lgv=mStat(lgR,k);
+      const fmt=x=>kind==="f3"?f3(x):pr(x);
+      if(lgv==null||!dir) return `<td class="num">${fmt(v)}</td>`;
+      const t=Math.max(-1,Math.min(1,(v-lgv)/scale*dir));
+      const bg=lerp(cssv("--div-mid"), cssv(t>=0?"--pos":"--neg"), Math.abs(t)*0.55);
+      return `<td class="num heat" style="background:${bg};color:${inkFor(bg)}" data-tip="${esc(mLabel(m)+" 리그 "+fmt(lgv)+" · 편차 "+(v-lgv>=0?"+":"")+fmt(v-lgv))}">${fmt(v)}</td>`;
+    }).join("");
+    const extra = isP?"":`<td class="num">${r[7]}</td>`;
+    return `<tr><td><b>${mLabel(m)}</b></td><td class="num" style="color:var(--muted)">${isP?r[0]+"구":r[1]+"타석"}</td>${tds}${extra}</tr>`;
+  }).join("");
+  if(!rows) return "";
+  /* insights */
+  const ins=[];
+  const mw = MONTHLY.months.map((m,i)=>({m,i,w:arr[i]&&arr[i][9]>=15?arr[i][8]/arr[i][9]:null})).filter(x=>x.w!=null);
+  if(mw.length>=2){
+    const best = mw.reduce((a,b)=> (isP? a.w<b.w : a.w>b.w) ? a : b);
+    const worst = mw.reduce((a,b)=> (isP? a.w>b.w : a.w<b.w) ? a : b);
+    if(Math.abs(best.w-worst.w)>=0.06){
+      ins.push(`최고의 달은 <b>${mLabel(best.m)}</b>(${isP?"피":""}wOBA ${f3(best.w)}), 가장 부진한 달은 <b>${mLabel(worst.m)}</b>(${f3(worst.w)}) — 월별 편차 ${f3(Math.abs(best.w-worst.w))}.`);
+    } else {
+      ins.push(`월별 ${isP?"피":""}wOBA 편차가 ${f3(Math.abs(best.w-worst.w))}로 시즌 내내 기복이 작은 편.`);
+    }
+    const last = mw[mw.length-1];
+    const diff = last.w - p.woba;
+    if(Math.abs(diff)>=0.04){
+      const better = isP ? diff<0 : diff>0;
+      ins.push(`최근(${mLabel(last.m)}) ${isP?"피":""}wOBA ${f3(last.w)} — 시즌 전체(${f3(p.woba)}) 대비 ${better?"상승세":"하락세"}.`);
+    }
+  }
+  if(isP){
+    const mv = MONTHLY.months.map((m,i)=>({m,v:mStat(arr[i],"velo")})).filter(x=>x.v!=null);
+    if(mv.length>=2){
+      const d = mv[mv.length-1].v - mv[0].v;
+      if(Math.abs(d)>=1.0) ins.push(`평균 구속이 ${mLabel(mv[0].m)} ${f1(mv[0].v)} → ${mLabel(mv[mv.length-1].m)} ${f1(mv[mv.length-1].v)}km/h로 ${d>0?"+":""}${f1(d)}km/h ${d>0?"상승":"하락"} — ${d>0?"컨디션 상승 신호":"피로 누적 가능성"}.`);
+    }
+  }
+  const head = `<th>월</th><th>표본</th>`+cols.map(c=>`<th>${c[1]}</th>`).join("")+(isP?"":"<th>HR</th>");
+  return `<div class="card"><h2>월별 흐름</h2>
+    <p class="cap">월별 성적을 그 달의 리그 평균과 비교했습니다 (셀 색상 = 강점 빨강 / 약점 파랑, 지표 방향 반영). 표본 기준 미달 항목은 — 처리.</p>
+    ${ins.length?`<ul style="margin:0 0 16px;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px">${ins.map(s=>`<li style="background:var(--surface2);border-radius:12px;padding:9px 14px;font-size:12.5px;line-height:1.6">${s}</li>`).join("")}</ul>`:""}
+    <div class="tscroll"><table class="tb"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+function leagueMonthlyCard(){
+  const rows = MONTHLY.months.map((m,i)=>{
+    const r=MONTHLY.league[i]; if(!r) return "";
+    return `<tr><td><b>${mLabel(m)}</b></td><td class="num" style="color:var(--muted)">${r[0].toLocaleString()}구</td>
+      <td class="num">${f3(mStat(r,"woba"))}</td><td class="num">${f3(mStat(r,"avg"))}</td>
+      <td class="num">${pr(mStat(r,"k"))}</td><td class="num">${pr(mStat(r,"bb"))}</td>
+      <td class="num">${pr(mStat(r,"whiff"))}</td><td class="num">${r[7]}</td><td class="num">${f1(r[12])}</td></tr>`;
+  }).join("");
+  return `<div class="card"><h2>월별 리그 트렌드</h2>
+    <p class="cap">리그 전체의 월별 흐름 — 타고/투고 경향과 구속 변화를 확인할 수 있습니다.</p>
+    <div class="tscroll"><table class="tb"><thead><tr><th>월</th><th>투구수</th><th>wOBA</th><th>타율</th><th>K%</th><th>BB%</th><th>Whiff%</th><th>HR</th><th>평균구속</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 
 /* ---------- pitch pattern (pitchers) ---------- */
@@ -398,6 +485,7 @@ function renderReport(){
       H ${p.h} · HR ${p.hr} · K ${p.kn} · BB ${p.bbn}</div></div>
       <div style="height:14px"></div>${tiles(p)}</div>
     ${pctRows(p)}
+    ${monthlyCard(p)}
     ${arsenalTable(p)}
     ${isP?patternCard(p):""}
     ${zoneCard(p)}
@@ -509,6 +597,7 @@ function renderLeague(){
     <div class="card"><div class="player-head"><span class="big">리그 분석</span>
       <span class="sub-toggle"><button data-sm="P" class="${m==="P"?"on":""}">투수</button><button data-sm="B" class="${m==="B"?"on":""}">타자</button></span>
       <div class="facts num">${DATA.meta.games}경기 · ${m==="P"?DATA.pitchers.length+"명 투수":DATA.batters.length+"명 타자"} 집계<br>리그 wOBA ${f3(LG.woba)} · K% ${pr(LG.k)} · BB% ${pr(LG.bb)}</div></div></div>
+    ${leagueMonthlyCard()}
     ${leaderCards(m)}
     ${pitchRankCard(m)}
     ${leagueTable(m)}`;

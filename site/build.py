@@ -17,7 +17,7 @@ head = (BASE / "head.html").read_text(encoding="utf-8")
 body = (BASE / "body.html").read_text(encoding="utf-8")
 app  = (BASE / "app.js").read_text(encoding="utf-8")
 
-for ph, fn in [("__DATA__", "aggregate.json"), ("__MATCH__", "matchups.json"), ("__PATTERN__", "patterns.json")]:
+for ph, fn in [("__DATA__", "aggregate.json"), ("__MATCH__", "matchups.json"), ("__PATTERN__", "patterns.json"), ("__MONTHLY__", "monthly.json")]:
     data = (A / fn).read_text(encoding="utf-8")
     assert ph in app, f"플레이스홀더 {ph} 없음"
     assert "</script" not in data.lower(), f"{fn}에 위험 문자열 포함"
