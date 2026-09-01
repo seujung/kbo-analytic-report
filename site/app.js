@@ -870,6 +870,38 @@ function chatContext(){
   if(!p) return {label:"–", text:"선수 미선택"};
   return {label:p.name, text:ctxPlayer(p, state.mode==="P")};
 }
+function pageText(){
+  const el=$("#report"); if(!el) return "";
+  return el.innerText.replace(/\n{3,}/g,"\n\n").slice(0,12000);
+}
+const RAW_LEGEND = `[원천 JSON 필드 범례]
+선수: pitches=투구수, pa=타석, k/bb=K%/BB%, woba, avg=타율, babip, hr/h/kn/bbn=홈런/안타/삼진/볼넷 개수, whiff/swing/csw/zone/chase/zcon/fstr=비율 지표, q=1이면 200구 이상 규정표본, pct=리그 백분위, vs.L/R=좌우 상대 스플릿(wd=wOBA 분모 타석수)
+byPitch(구종별): n=투구수, usage=구사율, velo=평균구속(km/h), putaway=결정구율, rv100=RV/100(타자 관점), zfreq=[존0~8, 존밖] 투구수
+zones(존별 배열, 인덱스 0~8=포수시점 좌상단→우하단, 9=존밖): n=투구, sw=스윙, wf=헛스윙, cs=루킹, wn/wd=wOBA 분자/분모
+월별 rec=[투구,타석,K,BB,HBP,SF,안타,HR,wOBA분자,wOBA분모,스윙,헛스윙,평균구속], months 순서와 대응
+패턴: counts={구종:[0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-2 카운트별 투구수]}, seq={직전구종:{다음구종:횟수}}, stance={구종:[좌타상대,우타상대 투구수]}
+상대전적 rec=[투구,스윙,헛스윙,타석,K,BB,HBP,1루타,2루타,3루타,HR,wOBA분자,wOBA분모]`;
+function rawContext(){
+  const J=o=>{try{return JSON.stringify(o)}catch(e){return "{}"}};
+  let obj={};
+  if(state.view==="match"){
+    const P=DATA.pitchers.find(x=>x.id===matchState.pid), B=DATA.batters.find(x=>x.id===matchState.bid);
+    obj={투수:P, 타자:B, 상대전적:MATCH[P.id+"_"+B.id]||null,
+         투수_월별:(MONTHLY.pitchers[String(P.id)]||null), 타자_월별:(MONTHLY.batters[String(B.id)]||null),
+         투수_패턴:(PATTERN.pitchers[String(P.id)]||null), months:MONTHLY.months};
+  } else if(state.view==="league"){
+    obj={리그평균:LG, 리그_구종별:LGP, 리그_월별:MONTHLY.league, months:MONTHLY.months};
+  } else {
+    const p=players().find(x=>x.id===state.sel); if(!p) return "";
+    const isP=state.mode==="P";
+    obj={선수:p, 월별:((isP?MONTHLY.pitchers:MONTHLY.batters)[String(p.id)]||null), months:MONTHLY.months};
+    if(isP) obj.투구패턴=PATTERN.pitchers[String(p.id)]||null;
+    obj.리그평균=LG;
+  }
+  let s=J(obj);
+  if(s.length>20000) s=s.slice(0,20000)+"…(생략)";
+  return s;
+}
 function updateChatCtx(){ const el=$("#chatCtx"); if(el) el.textContent=chatContext().label; }
 function scrollMsgs(){ const m=$("#chatMsgs"); m.scrollTop=m.scrollHeight; }
 function addMsg(cls,text){
@@ -883,7 +915,7 @@ async function chatSend(){
   if(!cfg.key){ $("#chatCfg").hidden=false; addMsg("err","API Key가 설정되지 않았습니다. 저장소 루트 .env에 GLM_API_KEY를 넣고 재빌드하거나, ⚙ 설정에 키를 입력해 주세요."); return; }
   const ctx=chatContext();
   addMsg("user",q); inp.value=""; chat.busy=true; $("#chatSend").disabled=true;
-  const sys=`너는 KBO 야구 세이버메트릭스 분석 어시스턴트다. 아래는 사용자가 지금 열람 중인 2026 KBO 트래킹 데이터 집계다. 반드시 이 데이터를 근거로 한국어로 간결하게 답하고, 수치를 인용할 때 어떤 지표인지 밝혀라. 데이터에 없는 내용(다른 시즌, 부상, 연봉 등)은 추측하지 말고 데이터에 없다고 답해라.\n\n${ctx.text}\n\n[리그 평균 참고] wOBA ${f3(LG.woba)} · K% ${pr(LG.k)} · BB% ${pr(LG.bb)} · Whiff ${pr(LG.whiff)} · Chase ${pr(LG.chase)}\n[지표 방향] 투수: 피wOBA·BB% 낮을수록, K%·Whiff·CSW·Chase유도 높을수록 좋음. RV/100은 투수 구종 음수가 좋음.`;
+  const sys=`너는 KBO 야구 세이버메트릭스 분석 어시스턴트다. 아래에 사용자가 지금 보고 있는 2026 KBO 리포트의 (1) 요약, (2) 화면에 표시된 내용 전체, (3) 화면을 생성한 원천 집계 데이터(JSON)가 제공된다. 반드시 이 데이터를 근거로 한국어로 간결하게 답하고, 수치를 인용할 때 어떤 지표인지 밝혀라. 요약과 화면 내용에 없는 세부 수치는 원천 JSON에서 직접 찾아 계산해도 된다(비율 = 분자/분모). 데이터에 없는 내용(다른 시즌, 부상, 연봉 등)은 추측하지 말고 데이터에 없다고 답해라.\n\n[1. 요약]\n${ctx.text}\n\n[2. 현재 화면에 표시된 리포트 내용]\n${pageText()}\n\n[3. 원천 집계 데이터 JSON]\n${rawContext()}\n\n${RAW_LEGEND}\n\n[리그 평균 참고] wOBA ${f3(LG.woba)} · K% ${pr(LG.k)} · BB% ${pr(LG.bb)} · Whiff ${pr(LG.whiff)} · Chase ${pr(LG.chase)}\n[지표 방향] 투수: 피wOBA·BB% 낮을수록, K%·Whiff·CSW·Chase유도 높을수록 좋음. RV/100은 투수 구종 음수가 좋음.`;
   const msgs=[{role:"system",content:sys},...chat.hist.slice(-10),{role:"user",content:q}];
   const el=addMsg("ai","…");
   try{
