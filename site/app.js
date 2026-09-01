@@ -827,12 +827,12 @@ function glmCfg(){
   /* .env로 빌드에 주입된 설정이 있으면 항상 우선 — 브라우저 저장값은 .env 미설정 시에만 사용 */
   if(GLMCFG.key){
     return { key: GLMCFG.key.trim(), env: true,
-      model: (GLMCFG.model||"glm-5.3-flash").trim(),
-      base:  (GLMCFG.base||"https://open.bigmodel.cn/api/paas/v4").trim().replace(/\/+$/,"") };
+      model: (GLMCFG.model||"google/gemma-4-31b-it:free").trim(),
+      base:  (GLMCFG.base||"https://openrouter.ai/api/v1").trim().replace(/\/+$/,"") };
   }
   return { key: (lsGet("glm_key")||"").trim(), env: false,
-    model: (lsGet("glm_model") || GLMCFG.model || "glm-5.3-flash").trim(),
-    base:  (lsGet("glm_base")  || GLMCFG.base  || "https://open.bigmodel.cn/api/paas/v4").trim().replace(/\/+$/,"") };
+    model: (lsGet("glm_model") || GLMCFG.model || "google/gemma-4-31b-it:free").trim(),
+    base:  (lsGet("glm_base")  || GLMCFG.base  || "https://openrouter.ai/api/v1").trim().replace(/\/+$/,"") };
 }
 function ctxPlayer(p,isP){
   const lines=[];
@@ -885,8 +885,9 @@ async function chatSend(){
   const msgs=[{role:"system",content:sys},...chat.hist.slice(-10),{role:"user",content:q}];
   const el=addMsg("ai","…");
   try{
-    const res=await fetch(cfg.base+"/chat/completions",{method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+cfg.key},
+    const headers={"Content-Type":"application/json","Authorization":"Bearer "+cfg.key};
+    if(cfg.base.includes("openrouter")) headers["X-Title"]="NineZone Report";
+    const res=await fetch(cfg.base+"/chat/completions",{method:"POST",headers,
       body:JSON.stringify({model:cfg.model,messages:msgs,stream:true,temperature:0.4})});
     if(!res.ok){ const t=await res.text().catch(()=>""); throw new Error(`HTTP ${res.status} ${t.slice(0,180)}`); }
     let acc="";
@@ -917,8 +918,9 @@ async function chatSend(){
     el.remove();
     let hint="브라우저에서 API를 직접 호출하므로 키·모델명·Base URL 또는 네트워크(CORS) 문제일 수 있습니다. ⚙ 설정에서 확인해 주세요.";
     const m=e.message||"";
-    if(m.includes("1113")||m.includes("Insufficient balance")) hint=`계정에 사용 가능한 크레딧/리소스 패키지가 없다는 응답입니다.\n① Base URL(${cfg.base})이 키 발급 플랫폼과 일치하는지 확인 (bigmodel.cn 키 ↔ open.bigmodel.cn, z.ai 키 ↔ api.z.ai)\n② 해당 플랫폼 콘솔에서 모델 "${cfg.model}"의 무료 할당/크레딧 확인\n③ 무료 모델(예: flash 계열)로 모델명 변경 시도`;
-    else if(m.includes("401")||m.includes("invalid")) hint="API Key가 잘못되었거나 만료되었습니다. 키와 Base URL 발급처가 일치하는지 확인하세요.";
+    if(m.includes("402")||m.includes("1113")||m.includes("Insufficient")) hint=`크레딧 부족 응답입니다. OpenRouter 콘솔(openrouter.ai)에서 크레딧을 확인하거나, 무료 모델(모델 ID 뒤에 :free가 붙는 모델)로 바꿔보세요. 현재 모델: ${cfg.model}`;
+    else if(m.includes("401")||m.includes("invalid")||m.includes("No auth")) hint="API Key가 잘못되었거나 만료되었습니다. OpenRouter 키(sk-or-...)인지, Base URL("+cfg.base+")과 발급처가 일치하는지 확인하세요.";
+    else if(m.includes("404")||m.includes("not found")||m.includes("No endpoints")) hint=`모델 ID "${cfg.model}"를 찾을 수 없습니다. openrouter.ai/models 에서 정확한 모델 ID를 확인해 .env의 GLM_MODEL을 수정 후 재빌드하세요.`;
     else if(m.includes("Failed to fetch")) hint="네트워크/CORS 차단으로 보입니다. 로컬 파일 또는 GitHub Pages에서 열었는지, Base URL이 정확한지 확인하세요.";
     addMsg("err","요청 실패: "+m+"\n"+hint);
   }
@@ -944,7 +946,7 @@ function initChat(){
       $("#cfgEnvNote").hidden=!lock;
       ["cfgKey","cfgModel","cfgBase"].forEach(id=>$("#"+id).disabled=lock);
       if(lock){ $("#cfgKey").value="(.env 설정 사용 중)"; $("#cfgModel").value=cfg.model; $("#cfgBase").value=cfg.base; }
-      else { $("#cfgKey").value=lsGet("glm_key")||""; $("#cfgModel").value=lsGet("glm_model")||GLMCFG.model||"glm-5.3-flash"; $("#cfgBase").value=lsGet("glm_base")||GLMCFG.base||"https://open.bigmodel.cn/api/paas/v4"; }
+      else { $("#cfgKey").value=lsGet("glm_key")||""; $("#cfgModel").value=lsGet("glm_model")||GLMCFG.model||"google/gemma-4-31b-it:free"; $("#cfgBase").value=lsGet("glm_base")||GLMCFG.base||"https://openrouter.ai/api/v1"; }
     }
   };
   $("#cfgSave").onclick=e=>{ e.preventDefault();
