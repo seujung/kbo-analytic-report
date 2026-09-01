@@ -96,11 +96,10 @@ def fstrike(g):
 
 pitchers=[]
 for pid, g in df.groupby("pitcher_id"):
-    if len(g)<200: continue
     cs = common_stats(g); cs["fstr"]=fstrike(g)
     teams = g["p_team"].value_counts()
     p={"id":int(pid),"name":g["pitcher_name"].iloc[0],"team":teams.index[0],
-       "hand":g["p_hand"].iloc[0],"games":int(g["gameId"].nunique()),
+       "hand":g["p_hand"].iloc[0],"games":int(g["gameId"].nunique()),"q":1 if len(g)>=200 else 0,
        **cs,
        "vs":stance_split(g,"stance"),
        "byPitch":pitch_type_stats(g,len(g),"P"),
@@ -109,13 +108,12 @@ for pid, g in df.groupby("pitcher_id"):
 
 batters=[]
 for bid, g in df.groupby("batter_id"):
-    if len(g)<200: continue
     cs = common_stats(g)
     teams = g["b_team"].value_counts()
     st = g["stance"].value_counts()
     b={"id":int(bid),"name":g["batter_name"].iloc[0],"team":teams.index[0],
        "stance":("S" if len(st)>1 and st.min()>len(g)*0.1 else st.index[0]),
-       "games":int(g["gameId"].nunique()),
+       "games":int(g["gameId"].nunique()),"q":1 if len(g)>=200 else 0,
        **cs,
        "vs":stance_split(g,"p_hand"),
        "byPitch":pitch_type_stats(g,len(g),"B"),
@@ -130,7 +128,7 @@ for st in lgp: lgp[st].pop("zfreq",None); lgp[st].pop("putaway",None)
 # percentiles
 def add_pct(players, fields, invert_fields):
     for f in fields:
-        vals = sorted([p[f] for p in players if p.get(f) is not None])
+        vals = sorted([p[f] for p in players if p.get(f) is not None and p.get("q")==1])
         if not vals: continue
         for p in players:
             v=p.get(f)

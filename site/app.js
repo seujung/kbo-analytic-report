@@ -100,8 +100,7 @@ function renderList(){
     `<button data-id="${p.id}" class="${p.id===state.sel?"on":""}">
       <span class="nm">${esc(p.name)}</span><span class="tm">${teamBadge(p.team,16)}</span><span class="mv num">${sideMetric(p)}</span></button>`).join("");
   $("#plist").querySelectorAll("button").forEach(b=>b.onclick=()=>{state.sel=+b.dataset.id;renderList();});
-  const thr = state.mode==="P"?"200구":"200구(상대)";
-  $("#countNote").textContent = `${L.length}명 표시 · 최소 ${thr} 이상만 집계`;
+  $("#countNote").textContent = `${L.length}명 표시 · 전체 ${state.mode==="P"?"투수":"타자"} 집계 (백분위는 200구+ 분포 기준)`;
   renderReport();
 }
 
@@ -140,7 +139,7 @@ function pctRows(p){
       <span class="pct-dot" style="left:${v}%;background:${col};color:${inkFor(col)}">${v}</span></span>
       <span class="rv num">${raw}</span></div>`;
   }).join("");
-  return `<div class="card"><h2>리그 백분위</h2><p class="cap">동일 기준(투구수 200+) 선수 대비 백분위. 100에 가까울수록 리그 상위 — ↓ 표시는 낮을수록 좋은 지표.</p>
+  return `<div class="card"><h2>리그 백분위</h2><p class="cap">규정 표본(200구+) 선수 분포 기준 백분위 — 표본이 그 미만인 선수는 같은 분포에 대입한 참고값입니다. 100에 가까울수록 리그 상위, ↓ 표시는 낮을수록 좋은 지표.</p>
     <div class="pct-rows">${rows}</div></div>`;
 }
 
@@ -483,7 +482,7 @@ function renderReport(){
   const hand = isP ? (p.hand==="L"?"좌투(추정)":"우투(추정)") : ({R:"우타",L:"좌타",S:"스위치"}[p.stance]||p.stance);
   $("#report").innerHTML = `
     <div class="card"><div class="player-head">
-      <span class="big">${esc(p.name)}</span><span class="badge team">${teamBadge(p.team,20)}<span>${p.team}</span></span><span class="badge">${hand}</span>
+      <span class="big">${esc(p.name)}</span><span class="badge team">${teamBadge(p.team,20)}<span>${p.team}</span></span><span class="badge">${hand}</span>${p.q?"":`<span class="badge" style="color:var(--bd);border-color:var(--bd-soft);background:var(--bd-soft)">표본 부족 (200구 미만)</span>`}
       <div class="facts num">${p.games}경기 · ${p.pitches.toLocaleString()}구 ${isP?"":"상대"} · ${p.pa}타석<br>
       H ${p.h} · HR ${p.hr} · K ${p.kn} · BB ${p.bbn}</div></div>
       <div style="height:14px"></div>${tiles(p)}</div>
