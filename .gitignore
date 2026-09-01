@@ -216,3 +216,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---- 나인존 리포트 전용 규칙 ----
+# 로그인 세션 쿠키 — 절대 커밋 금지
+statiz_session.json
+# 수집 원본 데이터 (약 200MB) — 저장소에는 올리지 않음
+output/**
+!output/_analysis
+!output/_analysis/**
+output/_analysis/df_cache.pkl
+output/_analysis/__pycache__/
+.DS_Store
+# mkdocs가 아닌 리포트 템플릿 폴더이므로 예외
+!site/
+!site/**
