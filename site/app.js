@@ -827,12 +827,12 @@ function glmCfg(){
   /* .env로 빌드에 주입된 설정이 있으면 항상 우선 — 브라우저 저장값은 .env 미설정 시에만 사용 */
   if(GLMCFG.key){
     return { key: GLMCFG.key.trim(), env: true,
-      model: (GLMCFG.model||"google/gemma-4-31b-it:free").trim(),
-      base:  (GLMCFG.base||"https://openrouter.ai/api/v1").trim().replace(/\/+$/,"") };
+      model: (GLMCFG.model||"gemini-2.5-flash").trim(),
+      base:  (GLMCFG.base||"https://generativelanguage.googleapis.com/v1beta/openai").trim().replace(/\/+$/,"") };
   }
   return { key: (lsGet("glm_key")||"").trim(), env: false,
-    model: (lsGet("glm_model") || GLMCFG.model || "google/gemma-4-31b-it:free").trim(),
-    base:  (lsGet("glm_base")  || GLMCFG.base  || "https://openrouter.ai/api/v1").trim().replace(/\/+$/,"") };
+    model: (lsGet("glm_model") || GLMCFG.model || "gemini-2.5-flash").trim(),
+    base:  (lsGet("glm_base")  || GLMCFG.base  || "https://generativelanguage.googleapis.com/v1beta/openai").trim().replace(/\/+$/,"") };
 }
 function ctxPlayer(p,isP){
   const lines=[];
@@ -932,10 +932,10 @@ async function chatSend(){
     el.remove();
     let hint="브라우저에서 API를 직접 호출하므로 키·모델명·Base URL 또는 네트워크(CORS) 문제일 수 있습니다. ⚙ 설정에서 확인해 주세요.";
     const m=e.message||"";
-    if(m.includes("rate-limited")||m.includes("429")) hint=`무료 모델(${cfg.model})이 일시적으로 혼잡해 자동 재시도(2회)에도 실패했습니다.\n① 잠시 후(수십 초~수 분) 다시 시도\n② ⚙ 설정 또는 .env에서 다른 :free 모델로 변경 (openrouter.ai/models 에서 free 필터)\n③ OpenRouter에 소액 크레딧을 충전하면 무료 모델의 할당량도 늘어납니다`;
-    else if(m.includes("402")||m.includes("1113")||m.includes("Insufficient")) hint=`크레딧 부족 응답입니다. OpenRouter 콘솔(openrouter.ai)에서 크레딧을 확인하거나, 무료 모델(모델 ID 뒤에 :free가 붙는 모델)로 바꿔보세요. 현재 모델: ${cfg.model}`;
-    else if(m.includes("401")||m.includes("invalid")||m.includes("No auth")) hint="API Key가 잘못되었거나 만료되었습니다. OpenRouter 키(sk-or-...)인지, Base URL("+cfg.base+")과 발급처가 일치하는지 확인하세요.";
-    else if(m.includes("404")||m.includes("not found")||m.includes("No endpoints")) hint=`모델 ID "${cfg.model}"를 찾을 수 없습니다. openrouter.ai/models 에서 정확한 모델 ID를 확인해 .env의 GLM_MODEL을 수정 후 재빌드하세요.`;
+    if(m.includes("RESOURCE_EXHAUSTED")||m.includes("rate-limited")||m.includes("quota")||m.includes("429")) hint=`무료 티어 사용량 한도(분당/일일 요청 수)에 걸렸습니다. 자동 재시도(2회)에도 실패했어요.\n① 잠시 후(1분~) 다시 시도\n② ⚙ 설정 또는 .env에서 더 가벼운 모델(예: gemini-2.5-flash-lite)로 변경\n③ 일일 한도 소진이면 다음 날 리셋됩니다 (ai.google.dev/pricing 참고). 현재 모델: ${cfg.model}`;
+    else if(m.includes("402")||m.includes("Insufficient")) hint=`크레딧/결제 관련 응답입니다. Google AI Studio 무료 키인지, 사용량 한도를 확인하세요. 현재 모델: ${cfg.model}`;
+    else if(m.includes("API key not valid")||m.includes("API_KEY_INVALID")||m.includes("401")||m.includes("403")||m.includes("PERMISSION_DENIED")) hint="API Key가 잘못되었거나 권한이 없습니다. https://aistudio.google.com/apikey 에서 발급한 키인지, Base URL("+cfg.base+")과 발급처가 일치하는지 확인하세요.";
+    else if(m.includes("404")||m.includes("not found")||m.includes("NOT_FOUND")) hint=`모델 ID "${cfg.model}"를 찾을 수 없습니다. ai.google.dev/models 에서 사용 가능한 모델명(예: gemini-2.5-flash, gemini-2.5-flash-lite, gemma-3-27b-it)을 확인해 .env의 GLM_MODEL을 수정 후 재빌드하세요.`;
     else if(m.includes("Failed to fetch")) hint="네트워크/CORS 차단으로 보입니다. 로컬 파일 또는 GitHub Pages에서 열었는지, Base URL이 정확한지 확인하세요.";
     addMsg("err","요청 실패: "+m+"\n"+hint);
   }
@@ -961,7 +961,7 @@ function initChat(){
       $("#cfgEnvNote").hidden=!lock;
       ["cfgKey","cfgModel","cfgBase"].forEach(id=>$("#"+id).disabled=lock);
       if(lock){ $("#cfgKey").value="(.env 설정 사용 중)"; $("#cfgModel").value=cfg.model; $("#cfgBase").value=cfg.base; }
-      else { $("#cfgKey").value=lsGet("glm_key")||""; $("#cfgModel").value=lsGet("glm_model")||GLMCFG.model||"google/gemma-4-31b-it:free"; $("#cfgBase").value=lsGet("glm_base")||GLMCFG.base||"https://openrouter.ai/api/v1"; }
+      else { $("#cfgKey").value=lsGet("glm_key")||""; $("#cfgModel").value=lsGet("glm_model")||GLMCFG.model||"gemini-2.5-flash"; $("#cfgBase").value=lsGet("glm_base")||GLMCFG.base||"https://generativelanguage.googleapis.com/v1beta/openai"; }
     }
   };
   $("#cfgSave").onclick=e=>{ e.preventDefault();

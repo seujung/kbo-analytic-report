@@ -80,10 +80,10 @@ if env_path.exists():
         env[k.strip()] = v.strip().strip('"').strip("'")
 import sys
 PUBLIC = "--public" in sys.argv  # 공개 배포용: 키를 임베드하지 않음 (푸시 전 필수!)
-_key = env.get("GLM_API_KEY") or env.get("OPENROUTER_API_KEY") or ""
+_key = env.get("GLM_API_KEY") or env.get("GEMINI_API_KEY") or env.get("GOOGLE_API_KEY") or env.get("OPENROUTER_API_KEY") or ""
 glmcfg = {"key": "" if PUBLIC else _key,
-          "model": env.get("GLM_MODEL", "google/gemma-4-31b-it:free"),
-          "base": env.get("GLM_BASE_URL", "https://openrouter.ai/api/v1")}
+          "model": env.get("GLM_MODEL", "gemini-2.5-flash"),
+          "base": env.get("GLM_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai")}
 assert "__GLMCFG__" in app
 app = app.replace("__GLMCFG__", _json.dumps(glmcfg))
 if glmcfg["key"]:
