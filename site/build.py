@@ -29,7 +29,8 @@ for ph, fn in [("__DATA__", "aggregate.json"), ("__MATCH__", "matchups.json"), (
 ALIAS = {"엘지":"LG","기아":"KIA","엔씨":"NC","케이티":"KT","에스에스지":"SSG",
          "트윈스":"LG","베어스":"두산","라이온즈":"삼성","자이언츠":"롯데","다이노스":"NC",
          "위즈":"KT","이글스":"한화","타이거즈":"KIA","랜더스":"SSG","히어로즈":"키움"}
-import base64, io, json as _json
+import base64, io, json as _json, unicodedata
+TEAMS_EN = {"KIA", "LG", "KT", "NC", "SSG"}
 logos = {}
 LOGO_DIR = BASE / "logos"
 if LOGO_DIR.is_dir():
@@ -38,19 +39,26 @@ if LOGO_DIR.is_dir():
     except ImportError:
         Image = None
     for f in sorted(LOGO_DIR.iterdir()):
-        if f.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp", ".gif"):
+        if f.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"):
             continue
-        team = ALIAS.get(f.stem, f.stem)
-        if Image is not None:
+        stem = unicodedata.normalize("NFC", f.stem)  # macOS 한글 파일명(NFD) 정규화
+        team = ALIAS.get(stem) or (stem.upper() if stem.upper() in TEAMS_EN else stem)
+        raw = f.read_bytes()
+        if raw.lstrip()[:4] == b"<svg" or f.suffix.lower() == ".svg":  # 확장자와 무관하게 SVG 감지
+            logos[team] = "data:image/svg+xml;base64," + base64.b64encode(raw).decode()
+            continue
+        try:
+            if Image is None:
+                raise ImportError
             im = Image.open(f)
             im.thumbnail((96, 96))
             buf = io.BytesIO()
             im.convert("RGBA").save(buf, "PNG", optimize=True)
             logos[team] = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
-        else:  # PIL 없으면 원본 그대로 임베드
+        except Exception:  # PIL 없음/디코딩 실패 시 원본 그대로 임베드
             import mimetypes
             mt = mimetypes.guess_type(f.name)[0] or "image/png"
-            logos[team] = f"data:{mt};base64," + base64.b64encode(f.read_bytes()).decode()
+            logos[team] = f"data:{mt};base64," + base64.b64encode(raw).decode()
 assert "__LOGOS__" in app
 app = app.replace("__LOGOS__", _json.dumps(logos, ensure_ascii=False))
 if logos:
