@@ -230,3 +230,7 @@ output/_analysis/__pycache__/
 # mkdocs가 아닌 리포트 템플릿 폴더이므로 예외
 !site/
 !site/**
+
+# site 예외 규칙보다 뒤에 둬서 .DS_Store는 항상 제외
+site/**/.DS_Store
+site/.DS_Store
