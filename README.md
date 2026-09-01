@@ -147,8 +147,8 @@ AI 모델과 대화할 수 있습니다. 엔드포인트는 Google Gemini API의
    GLM_MODEL=gemini-2.5-flash         # 대안: gemini-2.5-flash-lite, gemma-3-27b-it (ai.google.dev/models)
    GLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
    ```
-   `python site/build.py` 실행 시 키가 `docs/index.html`에 주입됩니다. **`.env`를 만들거나 수정한 뒤에는 반드시 재빌드해야 반영됩니다.** (`.env`가 있으면 페이지 ⚙ 설정보다 항상 우선합니다)
-2. **배포 페이지용** — 챗 패널의 ⚙ 설정에서 키를 입력하면 해당 브라우저(localStorage)에만 저장됩니다.
+   `python site/build.py` 실행 시 키가 `docs/index.html`에 주입됩니다. **`.env`를 만들거나 수정한 뒤에는 반드시 재빌드해야 반영됩니다.**
+2. **웹페이지 ⚙ 설정** — 챗 패널의 ⚙에서 키·모델·Base URL을 입력하면 해당 브라우저(localStorage)에 저장되며 **`.env` 값보다 우선 적용**됩니다. 빈 칸으로 저장하면 `.env` 값으로 복귀합니다.
 
 주의사항:
 

@@ -823,16 +823,18 @@ document.addEventListener("mousemove",e=>{
 const chat = {hist:[], busy:false, init:false};
 function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function lsSet(k,v){try{if(v)localStorage.setItem(k,v);else localStorage.removeItem(k)}catch(e){}}
+const GLM_DEFAULT_BASE="https://generativelanguage.googleapis.com/v1beta/openai";
 function glmCfg(){
-  /* .env로 빌드에 주입된 설정이 있으면 항상 우선 — 브라우저 저장값은 .env 미설정 시에만 사용 */
-  if(GLMCFG.key){
-    return { key: GLMCFG.key.trim(), env: true,
-      model: (GLMCFG.model||"gemini-2.5-flash").trim(),
-      base:  (GLMCFG.base||"https://generativelanguage.googleapis.com/v1beta/openai").trim().replace(/\/+$/,"") };
-  }
-  return { key: (lsGet("glm_key")||"").trim(), env: false,
-    model: (lsGet("glm_model") || GLMCFG.model || "gemini-2.5-flash").trim(),
-    base:  (lsGet("glm_base")  || GLMCFG.base  || "https://generativelanguage.googleapis.com/v1beta/openai").trim().replace(/\/+$/,"") };
+  /* 우선순위: 웹페이지 ⚙ 설정(브라우저 저장) > .env(빌드 주입) > 기본값 */
+  const ov = { key: (lsGet("glm_key")||"").trim(), model: (lsGet("glm_model")||"").trim(), base: (lsGet("glm_base")||"").trim() };
+  return {
+    key:   ov.key   || (GLMCFG.key||"").trim(),
+    model: ov.model || (GLMCFG.model||"gemini-2.5-flash").trim(),
+    base:  (ov.base || GLMCFG.base || GLM_DEFAULT_BASE).trim().replace(/\/+$/,""),
+    src: { key:   ov.key?"브라우저 설정":(GLMCFG.key?".env":"미설정"),
+           model: ov.model?"브라우저 설정":".env/기본값",
+           base:  ov.base?"브라우저 설정":".env/기본값" }
+  };
 }
 function ctxPlayer(p,isP){
   const lines=[];
@@ -957,20 +959,28 @@ function initChat(){
   $("#chatSettings").onclick=()=>{
     const c=$("#chatCfg"); c.hidden=!c.hidden;
     if(!c.hidden){
-      const cfg=glmCfg(); const lock=cfg.env;
-      $("#cfgEnvNote").hidden=!lock;
-      ["cfgKey","cfgModel","cfgBase"].forEach(id=>$("#"+id).disabled=lock);
-      if(lock){ $("#cfgKey").value="(.env 설정 사용 중)"; $("#cfgModel").value=cfg.model; $("#cfgBase").value=cfg.base; }
-      else { $("#cfgKey").value=lsGet("glm_key")||""; $("#cfgModel").value=lsGet("glm_model")||GLMCFG.model||"gemini-2.5-flash"; $("#cfgBase").value=lsGet("glm_base")||GLMCFG.base||"https://generativelanguage.googleapis.com/v1beta/openai"; }
+      const cfg=glmCfg();
+      const note=$("#cfgEnvNote");
+      note.hidden=false;
+      note.innerHTML=`현재 적용 — 키: <b>${cfg.src.key}</b>${cfg.key?` (…${esc(cfg.key.slice(-4))})`:""} · 모델: <b>${esc(cfg.model)}</b> (${cfg.src.model}) · Base: ${cfg.src.base}<br>여기서 저장하면 .env 값보다 우선 적용되고, <b>빈 칸으로 저장하면 .env 값으로 복귀</b>합니다.`;
+      $("#cfgKey").value=lsGet("glm_key")||"";
+      $("#cfgKey").placeholder=GLMCFG.key?`(.env 키 사용 중 — 바꾸려면 새 키 입력)`:"API Key";
+      $("#cfgModel").value=lsGet("glm_model")||"";
+      $("#cfgModel").placeholder=(GLMCFG.model||"gemini-2.5-flash")+" (.env/기본값)";
+      $("#cfgBase").value=lsGet("glm_base")||"";
+      $("#cfgBase").placeholder=(GLMCFG.base||GLM_DEFAULT_BASE)+" (.env/기본값)";
     }
   };
   $("#cfgSave").onclick=e=>{ e.preventDefault();
-    if(glmCfg().env){ $("#chatCfg").hidden=true; return; }
     lsSet("glm_key",$("#cfgKey").value.trim()); lsSet("glm_model",$("#cfgModel").value.trim()); lsSet("glm_base",$("#cfgBase").value.trim());
-    $("#chatCfg").hidden=true; addMsg("sys","설정이 이 브라우저에 저장되었습니다."); };
+    $("#chatCfg").hidden=true;
+    const cfg=glmCfg();
+    addMsg("sys",`설정 저장됨 — 모델: ${cfg.model} (${cfg.src.model}) · 키: ${cfg.src.key}${cfg.key?` (…${cfg.key.slice(-4)})`:""}`); };
   $("#cfgReset").onclick=e=>{ e.preventDefault();
     ["glm_key","glm_model","glm_base"].forEach(k=>lsSet(k,""));
-    $("#chatCfg").hidden=true; addMsg("sys","브라우저 저장값을 초기화했습니다. 이제 .env(빌드) 설정 또는 기본값이 사용됩니다."); };
+    $("#chatCfg").hidden=true;
+    const cfg=glmCfg();
+    addMsg("sys",`브라우저 저장값 초기화 — .env/기본값으로 복귀 (모델: ${cfg.model}, 키: ${cfg.src.key})`); };
   $("#chatForm").onsubmit=e=>{ e.preventDefault(); chatSend(); };
   $("#chatInput").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); chatSend(); } });
 }
