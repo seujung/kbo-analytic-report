@@ -29,7 +29,10 @@
   <main class="main">
     <div class="main-top">
       <h2 id="pageTitle">투수 리포트</h2>
-      <div class="top-right"><span class="date-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 9h18"/></svg><span id="metaLine"></span></span></div>
+      <div class="top-right">
+        <span class="date-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 9h18"/></svg><span id="metaLine"></span></span>
+        <button class="chat-btn" id="chatToggle"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-2.5A8 8 0 1 1 21 12z"/><path d="M9 11h6M9 8h4"/></svg>AI 분석 챗</button>
+      </div>
     </div>
     <div class="content">
       <div class="report" id="report"></div>
@@ -41,4 +44,24 @@
     </div>
   </main>
 </div>
+<aside id="chatPanel" hidden aria-label="AI 분석 챗">
+  <div class="chat-head">
+    <b>AI 분석 챗</b><span class="chat-ctx" id="chatCtx"></span>
+    <button id="chatNew" title="새 대화">새 대화</button>
+    <button id="chatSettings" title="설정">⚙</button>
+    <button id="chatClose" title="닫기">✕</button>
+  </div>
+  <div class="chat-cfg" id="chatCfg" hidden>
+    <label>API Key <input id="cfgKey" type="password" placeholder="GLM API Key (.env 미설정 시)"></label>
+    <label>모델 <input id="cfgModel" type="text" placeholder="glm-5.3-flash"></label>
+    <label>Base URL <input id="cfgBase" type="text" placeholder="https://open.bigmodel.cn/api/paas/v4"></label>
+    <button id="cfgSave">저장</button>
+  </div>
+  <div class="chat-msgs" id="chatMsgs"></div>
+  <form class="chat-form" id="chatForm">
+    <textarea id="chatInput" rows="2" placeholder="열람 중인 선수 데이터에 대해 질문하세요…"></textarea>
+    <button type="submit" id="chatSend">전송</button>
+  </form>
+  <div class="chat-note">현재 열람 중인 선수의 집계 데이터가 자동으로 컨텍스트에 포함됩니다. 응답은 AI 생성 결과로 부정확할 수 있습니다.</div>
+</aside>
 <div id="tip" role="status"></div>

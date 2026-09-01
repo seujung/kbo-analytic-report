@@ -1,6 +1,7 @@
 const DATA = __DATA__;
 const MATCH = __MATCH__; /* "pid_bid": [n,sw,wf,pa,K,BB,HBP,1B,2B,3B,HR,woba_n,woba_d] */
 const PATTERN = __PATTERN__; /* counts_order, league:{cnt:{type:share}}, pitchers:{pid:{counts,seq,stance}} */
+const GLMCFG = __GLMCFG__; /* build 시 .env의 GLM_API_KEY/GLM_MODEL/GLM_BASE_URL 주입 */
 const MONTHLY = __MONTHLY__; /* months[], league:[rec], pitchers/batters:{id:[rec|null]} — rec=[n,pa,K,BB,HBP,SF,H,HR,wn,wd,sw,wf,velo] */
 
 /* ---------- constants ---------- */
@@ -805,6 +806,7 @@ function applyGloss(){
       if(re.test(t)){ el.dataset.tip = txt; el.classList.add("hint"); break; }
     }
   });
+  if(typeof updateChatCtx==="function") updateChatCtx();
 }
 
 /* ---------- tooltip ---------- */
@@ -817,6 +819,126 @@ document.addEventListener("mousemove",e=>{
   else tip.style.opacity=0;
 });
 
+/* ---------- AI chat (GLM) ---------- */
+const chat = {hist:[], busy:false, init:false};
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{if(v)localStorage.setItem(k,v);else localStorage.removeItem(k)}catch(e){}}
+function glmCfg(){
+  return {
+    key:   (lsGet("glm_key")   || GLMCFG.key   || "").trim(),
+    model: (lsGet("glm_model") || GLMCFG.model || "glm-5.3-flash").trim(),
+    base:  (lsGet("glm_base")  || GLMCFG.base  || "https://open.bigmodel.cn/api/paas/v4").trim().replace(/\/+$/,"")
+  };
+}
+function ctxPlayer(p,isP){
+  const lines=[];
+  const hand=isP?(p.hand==="L"?"좌투":"우투"):({R:"우타",L:"좌타",S:"스위치"}[p.stance]||"");
+  lines.push(`${isP?"투수":"타자"} ${p.name} (${p.team}, ${hand}) — ${p.games}경기 ${p.pitches}구 ${p.pa}타석${p.q?"":" [표본 부족: 200구 미만]"}`);
+  lines.push(`시즌: ${isP?"피":""}wOBA ${f3(p.woba)} · K% ${pr(p.k)} · BB% ${pr(p.bb)} · ${isP?"":"타율 "+f3(p.avg)+" · HR "+p.hr+" · "}Whiff ${pr(p.whiff)} · CSW ${pr(p.csw)} · Chase ${pr(p.chase)} · Zone ${pr(p.zone)} · BABIP ${f3(p.babip)}${isP&&p.fstr!=null?" · 초구스트라이크 "+pr(p.fstr):""}`);
+  const types=Object.entries(p.byPitch).sort((a,b)=>b[1].n-a[1].n)
+    .map(([t,d])=>`${t} ${pr(d.usage)} ${f1(d.velo)}km/h Whiff ${pr(d.whiff)} ${isP?"피":""}wOBA ${f3(d.woba)} RV/100 ${d.rv100==null?"-":d.rv100}${isP&&d.putaway!=null?" 결정구 "+pr(d.putaway):""}`).join("\n  - ");
+  if(types) lines.push("구종별:\n  - "+types);
+  const zw=[]; for(let i=0;i<9;i++){const wd=p.zones.wd[i];zw.push(wd>=10?f3((p.zones.wn[i]||0)/wd):"–");}
+  lines.push(`존별 ${isP?"피":""}wOBA (9분할 포수시점, 상단좌→하단우): ${zw.join(" / ")}`);
+  const mon=(isP?MONTHLY.pitchers:MONTHLY.batters)[String(p.id)];
+  if(mon){const ms=MONTHLY.months.map((m,i)=>{const r=mon[i];return (r&&r[9]>=10)?mLabel(m)+" "+f3(r[8]/r[9]):null;}).filter(Boolean).join(", ");
+    if(ms) lines.push(`월별 ${isP?"피":""}wOBA: ${ms}`);}
+  ["L","R"].forEach(s=>{const v=p.vs&&p.vs[s]; if(v&&v.wd>=10) lines.push(`vs ${isP?(s==="L"?"좌타자":"우타자"):(s==="L"?"좌투수":"우투수")}: ${isP?"피":""}wOBA ${f3(v.woba)}, Whiff ${pr(v.whiff)} (${v.n}구)`);});
+  return lines.join("\n");
+}
+function chatContext(){
+  if(state.view==="match"){
+    const P=DATA.pitchers.find(x=>x.id===matchState.pid), B=DATA.batters.find(x=>x.id===matchState.bid);
+    if(!P||!B) return {label:"가상 매칭", text:"선수 미선택"};
+    let s="[가상 매칭 화면]\n"+ctxPlayer(P,true)+"\n---\n"+ctxPlayer(B,false);
+    const rec=MATCH[P.id+"_"+B.id];
+    if(rec){const[n,sw,wf,pa,K,BB,HBP,H1,H2,H3,HR,wn,wd]=rec;
+      s+=`\n---\n두 선수 상대전적(2026): ${pa}타석 ${n}구, 안타 ${H1+H2+H3+HR} (HR ${HR}), K ${K}, BB ${BB}, wOBA ${wd?f3(wn/wd):"–"}, 헛스윙율 ${sw?pr(wf/sw):"–"}`;}
+    else s+="\n---\n두 선수의 2026시즌 맞대결 기록 없음";
+    return {label:`${P.name} vs ${B.name}`, text:s};
+  }
+  if(state.view==="league"){
+    return {label:"리그 전체", text:`[리그 분석 화면] 2026 KBO ${DATA.meta.games}경기 ${DATA.meta.pitches.toLocaleString()}구 집계\n리그 평균: wOBA ${f3(LG.woba)} · 타율 ${f3(LG.avg)} · K% ${pr(LG.k)} · BB% ${pr(LG.bb)} · Whiff ${pr(LG.whiff)} · CSW ${pr(LG.csw)} · Chase ${pr(LG.chase)} · BABIP ${f3(LG.babip)}`};
+  }
+  const p=players().find(x=>x.id===state.sel);
+  if(!p) return {label:"–", text:"선수 미선택"};
+  return {label:p.name, text:ctxPlayer(p, state.mode==="P")};
+}
+function updateChatCtx(){ const el=$("#chatCtx"); if(el) el.textContent=chatContext().label; }
+function scrollMsgs(){ const m=$("#chatMsgs"); m.scrollTop=m.scrollHeight; }
+function addMsg(cls,text){
+  const d=document.createElement("div"); d.className="msg "+cls; d.textContent=text;
+  $("#chatMsgs").appendChild(d); scrollMsgs(); return d;
+}
+async function chatSend(){
+  const inp=$("#chatInput"); const q=inp.value.trim();
+  if(!q||chat.busy) return;
+  const cfg=glmCfg();
+  if(!cfg.key){ $("#chatCfg").hidden=false; addMsg("err","API Key가 설정되지 않았습니다. 저장소 루트 .env에 GLM_API_KEY를 넣고 재빌드하거나, ⚙ 설정에 키를 입력해 주세요."); return; }
+  const ctx=chatContext();
+  addMsg("user",q); inp.value=""; chat.busy=true; $("#chatSend").disabled=true;
+  const sys=`너는 KBO 야구 세이버메트릭스 분석 어시스턴트다. 아래는 사용자가 지금 열람 중인 2026 KBO 트래킹 데이터 집계다. 반드시 이 데이터를 근거로 한국어로 간결하게 답하고, 수치를 인용할 때 어떤 지표인지 밝혀라. 데이터에 없는 내용(다른 시즌, 부상, 연봉 등)은 추측하지 말고 데이터에 없다고 답해라.\n\n${ctx.text}\n\n[리그 평균 참고] wOBA ${f3(LG.woba)} · K% ${pr(LG.k)} · BB% ${pr(LG.bb)} · Whiff ${pr(LG.whiff)} · Chase ${pr(LG.chase)}\n[지표 방향] 투수: 피wOBA·BB% 낮을수록, K%·Whiff·CSW·Chase유도 높을수록 좋음. RV/100은 투수 구종 음수가 좋음.`;
+  const msgs=[{role:"system",content:sys},...chat.hist.slice(-10),{role:"user",content:q}];
+  const el=addMsg("ai","…");
+  try{
+    const res=await fetch(cfg.base+"/chat/completions",{method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+cfg.key},
+      body:JSON.stringify({model:cfg.model,messages:msgs,stream:true,temperature:0.4})});
+    if(!res.ok){ const t=await res.text().catch(()=>""); throw new Error(`HTTP ${res.status} ${t.slice(0,180)}`); }
+    let acc="";
+    const ct=(res.headers.get("content-type")||"");
+    if(res.body && ct.includes("event-stream")){
+      const rd=res.body.getReader(), dec=new TextDecoder(); let buf="";
+      while(true){
+        const {done,value}=await rd.read(); if(done) break;
+        buf+=dec.decode(value,{stream:true});
+        const parts=buf.split("\n"); buf=parts.pop();
+        for(const ln of parts){
+          const s=ln.trim(); if(!s.startsWith("data:")) continue;
+          const d=s.slice(5).trim(); if(!d||d==="[DONE]") continue;
+          try{ const j=JSON.parse(d);
+            const c=(j.choices&&j.choices[0]&&(j.choices[0].delta?.content??j.choices[0].message?.content))||"";
+            if(c){ acc+=c; el.textContent=acc; scrollMsgs(); }
+          }catch(e){}
+        }
+      }
+    } else {
+      const j=await res.json();
+      acc=(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||"";
+      el.textContent=acc||"(빈 응답)";
+    }
+    if(!acc) el.textContent="(빈 응답)";
+    chat.hist.push({role:"user",content:q},{role:"assistant",content:acc});
+  }catch(e){
+    el.remove();
+    addMsg("err","요청 실패: "+e.message+"\n브라우저에서 API를 직접 호출하므로 키·모델명·Base URL 또는 네트워크(CORS) 문제일 수 있습니다. ⚙ 설정에서 확인해 주세요.");
+  }
+  chat.busy=false; $("#chatSend").disabled=false;
+}
+function initChat(){
+  $("#chatToggle").onclick=()=>{
+    const p=$("#chatPanel"); p.hidden=!p.hidden;
+    if(!p.hidden){ updateChatCtx();
+      if(!chat.init){ chat.init=true;
+        const cfg=glmCfg();
+        addMsg("sys",`모델: ${cfg.model}${cfg.key?"":" · API Key 미설정(⚙)"}\n예시: "이 선수 2스트라이크 결정구는 뭐가 좋아?" / "좌타 상대 약점 분석해줘"`);
+      }
+      $("#chatInput").focus();
+    }
+  };
+  $("#chatClose").onclick=()=>$("#chatPanel").hidden=true;
+  $("#chatNew").onclick=()=>{ chat.hist=[]; $("#chatMsgs").innerHTML=""; addMsg("sys","새 대화 시작 — 현재 컨텍스트: "+chatContext().label); };
+  $("#chatSettings").onclick=()=>{
+    const c=$("#chatCfg"); c.hidden=!c.hidden;
+    if(!c.hidden){ $("#cfgKey").value=lsGet("glm_key")||""; $("#cfgModel").value=lsGet("glm_model")||GLMCFG.model||"glm-5.3-flash"; $("#cfgBase").value=lsGet("glm_base")||GLMCFG.base||"https://open.bigmodel.cn/api/paas/v4"; }
+  };
+  $("#cfgSave").onclick=e=>{ e.preventDefault();
+    lsSet("glm_key",$("#cfgKey").value.trim()); lsSet("glm_model",$("#cfgModel").value.trim()); lsSet("glm_base",$("#cfgBase").value.trim());
+    $("#chatCfg").hidden=true; addMsg("sys","설정이 이 브라우저에 저장되었습니다."); };
+  $("#chatForm").onsubmit=e=>{ e.preventDefault(); chatSend(); };
+  $("#chatInput").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); chatSend(); } });
+}
+
 /* ---------- boot ---------- */
 $("#metaLine").textContent = `${DATA.meta.games}경기 · ${DATA.meta.pitches.toLocaleString()}구 · ${DATA.meta.dateFrom} ~ ${DATA.meta.dateTo}`;
 $("#tabP").onclick=()=>{state.view="player";state.mode="P";state.sort="pitches";state.sel=null;syncTabs();renderSortSel();renderList();};
@@ -826,4 +948,5 @@ $("#tabM").onclick=()=>{state.view="match";syncTabs();renderList();};
 $("#search").addEventListener("input",e=>{state.q=e.target.value.trim();renderList();});
 $("#sortSel").addEventListener("change",e=>{state.sort=e.target.value;renderList();});
 if(window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>renderReport());
+initChat();
 renderSortSel();renderList();

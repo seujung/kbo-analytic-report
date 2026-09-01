@@ -64,6 +64,30 @@ app = app.replace("__LOGOS__", _json.dumps(logos, ensure_ascii=False))
 if logos:
     print("embedded logos:", ", ".join(sorted(logos)))
 
+# --- GLM AI 챗 설정: 저장소 루트 .env 에서 읽어 주입 ---
+# .env 예시:
+#   GLM_API_KEY=xxxxxxxx
+#   GLM_MODEL=glm-5.3-flash          (선택, 기본 glm-5.3-flash)
+#   GLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4   (선택)
+env = {}
+env_path = ROOT / ".env"
+if env_path.exists():
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        env[k.strip()] = v.strip().strip('"').strip("'")
+glmcfg = {"key": env.get("GLM_API_KEY", ""),
+          "model": env.get("GLM_MODEL", "glm-5.3-flash"),
+          "base": env.get("GLM_BASE_URL", "https://open.bigmodel.cn/api/paas/v4")}
+assert "__GLMCFG__" in app
+app = app.replace("__GLMCFG__", _json.dumps(glmcfg))
+if glmcfg["key"]:
+    print("⚠ 경고: GLM API Key가 docs/index.html에 포함됩니다. 이 상태로 공개 저장소에 푸시하면 키가 노출됩니다!")
+else:
+    print("GLM 챗: .env에 GLM_API_KEY 없음 — 페이지 ⚙ 설정에서 키 입력 가능")
+
 page = (
     '<!doctype html>\n<html lang="ko">\n<head>\n'
     '<meta charset="utf-8">\n'
