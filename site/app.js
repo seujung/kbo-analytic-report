@@ -496,6 +496,7 @@ function renderReport(){
     ${swCard(p)}
     ${glossary()}`;
   $("#report").querySelectorAll(".metric-tabs button").forEach(b=>b.onclick=()=>{zoneState.metric=b.dataset.m;renderReport();});
+  applyGloss();
 }
 
 /* ---------- league analysis view ---------- */
@@ -617,6 +618,7 @@ function renderLeague(){
     if(leagueState.sort===k) leagueState.dir*=-1; else {leagueState.sort=k;leagueState.dir=(k==="name"||k==="team")?1:-1;}
     renderLeague();
   });
+  applyGloss();
 }
 
 /* ---------- virtual matchup view ---------- */
@@ -768,6 +770,40 @@ function renderMatch(){
   $("#selB").onchange=e=>{matchState.bid=+e.target.value;renderMatch();};
   $("#report").querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>{
     const [mm,id]=el.dataset.go.split(":"); goToPlayer(mm,+id);
+  });
+  applyGloss();
+}
+
+/* ---------- metric glossary tooltips ---------- */
+const GLOSS = [
+  [/존 컨택트/, "존 컨택트율 — 스트라이크 존 안의 공에 스윙했을 때 배트에 맞힌 비율. 높을수록 컨택 능력이 좋습니다."],
+  [/초구 스트라이크/, "초구 스트라이크율 (F-Strike%) — 타석의 첫 번째 공이 스트라이크(루킹·스윙·파울·인플레이 포함)가 된 비율. 카운트 싸움의 출발점입니다."],
+  [/결정구/, "결정구% (PutAway%) — 2스트라이크 상황에서 그 구종을 던져 삼진으로 타석을 끝낸 비율. 높을수록 확실한 마무리 구종입니다."],
+  [/RV\/100/, "RV/100 — 카운트 변화와 타석 결과의 기대득점 가치를 100구당으로 환산한 값(타자 관점). 투수의 구종은 음수일수록, 타자의 대응은 양수일수록 우수합니다."],
+  [/피?wOBA/, "wOBA — 출루 사건에 득점 가치 가중치(볼넷 .69 · 1루타 .88 · 2루타 1.25 · 홈런 2.03)를 부여한 종합 공격 지표. 리그 평균 약 .330. 타자는 높을수록, 투수(피wOBA)는 낮을수록 좋습니다."],
+  [/BABIP/, "BABIP — 인플레이 타구(홈런 제외)가 안타가 된 비율. 리그 평균(약 .318)에서 크게 벗어나면 운·수비 영향이 섞였을 가능성이 있어 지속성이 낮은 지표입니다."],
+  [/CSW/, "CSW% — 전체 투구 중 루킹 스트라이크 + 헛스윙의 비율 (Called Strikes + Whiffs). 구위와 커맨드를 함께 반영하는 지표로, 투수는 높을수록 좋습니다."],
+  [/헛스윙|Whiff/, "Whiff% — 스윙 대비 헛스윙 비율. 투수는 높을수록(헛스윙 유도), 타자는 낮을수록(컨택) 좋습니다."],
+  [/스윙율/, "스윙율 — 해당 존/전체 투구에 스윙한 비율. 타자의 공격 성향과 노림 존을 보여줍니다."],
+  [/투구 빈도/, "투구 빈도 — 전체 추적 투구 중 해당 존에 들어온 비율. 투수의 로케이션 패턴을 보여줍니다."],
+  [/체이스|Chase/, "Chase% (체이스율) — 스트라이크 존 밖 공에 스윙한 비율. 투수에게는 유인 능력(높을수록 좋음), 타자에게는 선구안(낮을수록 좋음) 지표입니다."],
+  [/존 투구율|Zone%/, "Zone% (존 투구율) — 전체 투구 중 스트라이크 존 안에 들어간 비율. 공격적인 투구 성향을 나타냅니다."],
+  [/탈삼진|삼진율|^K%$|K% /, "K% — 타석 대비 삼진 비율. 투수는 높을수록, 타자는 낮을수록 좋습니다. 리그 평균 약 19.5%."],
+  [/볼넷|^BB%$|BB% /, "BB% — 타석 대비 볼넷 비율. 투수는 낮을수록(제구), 타자는 높을수록(선구안·출루) 좋습니다. 리그 평균 약 9.4%."],
+  [/구사율|^비중$/, "구사율 — 그 투수의 전체 투구 중 해당 구종이 차지하는 비율."],
+  [/^구속$|평균구속/, "평균 구속 (km/h) — 트래킹된 투구의 평균 속도."],
+  [/^타율$/, "타율 (AVG) — 안타 ÷ 타수. 볼넷·몸에 맞는 공·희생타는 타수에서 제외됩니다."],
+  [/^홈런$|^HR$/, "홈런 개수."],
+  [/^판정$/, "판정 — 양측 wOBA 편차와 헛스윙 편차를 합성한 점수(±0.045 기준)로 구종별 우위를 추정한 결과입니다."],
+];
+function applyGloss(){
+  document.querySelectorAll("#report th, #report .tile .lb, #report .pct-row .lb, #report .h2h-strip .l, #report .split-box .r > span:first-child, #report .metric-tabs button, #report .lead-card .mt b").forEach(el=>{
+    if(el.dataset.tip) return;
+    const t = el.textContent.trim();
+    if(!t) return;
+    for(const [re,txt] of GLOSS){
+      if(re.test(t)){ el.dataset.tip = txt; el.classList.add("hint"); break; }
+    }
   });
 }
 
