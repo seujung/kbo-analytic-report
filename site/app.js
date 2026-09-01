@@ -904,10 +904,30 @@ function rawContext(){
 }
 function updateChatCtx(){ const el=$("#chatCtx"); if(el) el.textContent=chatContext().label; }
 function scrollMsgs(){ const m=$("#chatMsgs"); m.scrollTop=m.scrollHeight; }
+function mdRender(t){
+  /* 경량 마크다운 → HTML (입력은 먼저 이스케이프되어 안전) */
+  const lines = esc(t).split("\n");
+  let html="", inUL=false, inOL=false;
+  const close=()=>{ if(inUL){html+="</ul>";inUL=false;} if(inOL){html+="</ol>";inOL=false;} };
+  const inline=s=>s
+    .replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>")
+    .replace(/`([^`]+)`/g,"<code>$1</code>");
+  for(const ln of lines){
+    const l=ln.trim(); let m;
+    if(!l){ close(); html+='<div class="md-gap"></div>'; continue; }
+    if(m=l.match(/^#{1,4}\s+(.*)/)){ close(); html+=`<div class="md-h">${inline(m[1])}</div>`; continue; }
+    if(m=l.match(/^[*\-•]\s+(.*)/)){ if(!inUL){close();html+="<ul>";inUL=true;} html+=`<li>${inline(m[1])}</li>`; continue; }
+    if(m=l.match(/^(\d+)[.)]\s+(.*)/)){ if(!inOL){close();html+="<ol>";inOL=true;} html+=`<li>${inline(m[2])}</li>`; continue; }
+    close(); html+=`<div class="md-p">${inline(l)}</div>`;
+  }
+  close(); return html;
+}
 function addMsg(cls,text){
-  const d=document.createElement("div"); d.className="msg "+cls; d.textContent=text;
+  const d=document.createElement("div"); d.className="msg "+cls;
+  if(cls==="ai") d.innerHTML=mdRender(text); else d.textContent=text;
   $("#chatMsgs").appendChild(d); scrollMsgs(); return d;
 }
+function setAi(el,text){ el.innerHTML=mdRender(text); }
 async function chatSend(){
   const inp=$("#chatInput"); const q=inp.value.trim();
   if(!q||chat.busy) return;
@@ -915,7 +935,7 @@ async function chatSend(){
   if(!cfg.key){ $("#chatCfg").hidden=false; addMsg("err","API Key가 설정되지 않았습니다. 저장소 루트 .env에 GLM_API_KEY를 넣고 재빌드하거나, ⚙ 설정에 키를 입력해 주세요."); return; }
   const ctx=chatContext();
   addMsg("user",q); inp.value=""; chat.busy=true; $("#chatSend").disabled=true;
-  const sys=`너는 KBO 야구 세이버메트릭스 분석 어시스턴트다. 아래에 사용자가 지금 보고 있는 2026 KBO 리포트의 (1) 요약, (2) 화면에 표시된 내용 전체, (3) 화면을 생성한 원천 집계 데이터(JSON)가 제공된다. 반드시 이 데이터를 근거로 한국어로 간결하게 답하고, 수치를 인용할 때 어떤 지표인지 밝혀라. 요약과 화면 내용에 없는 세부 수치는 원천 JSON에서 직접 찾아 계산해도 된다(비율 = 분자/분모). 데이터에 없는 내용(다른 시즌, 부상, 연봉 등)은 추측하지 말고 데이터에 없다고 답해라.\n\n[1. 요약]\n${ctx.text}\n\n[2. 현재 화면에 표시된 리포트 내용]\n${pageText()}\n\n[3. 원천 집계 데이터 JSON]\n${rawContext()}\n\n${RAW_LEGEND}\n\n[리그 평균 참고] wOBA ${f3(LG.woba)} · K% ${pr(LG.k)} · BB% ${pr(LG.bb)} · Whiff ${pr(LG.whiff)} · Chase ${pr(LG.chase)}\n[지표 방향] 투수: 피wOBA·BB% 낮을수록, K%·Whiff·CSW·Chase유도 높을수록 좋음. RV/100은 투수 구종 음수가 좋음.`;
+  const sys=`너는 KBO 야구 세이버메트릭스 분석 어시스턴트다. 아래에 사용자가 지금 보고 있는 2026 KBO 리포트의 (1) 요약, (2) 화면에 표시된 내용 전체, (3) 화면을 생성한 원천 집계 데이터(JSON)가 제공된다. 반드시 이 데이터를 근거로 한국어로 간결하게 답하고, 수치를 인용할 때 어떤 지표인지 밝혀라. 요약과 화면 내용에 없는 세부 수치는 원천 JSON에서 직접 찾아 계산해도 된다(비율 = 분자/분모). 데이터에 없는 내용(다른 시즌, 부상, 연봉 등)은 추측하지 말고 데이터에 없다고 답해라. 답변은 마크다운(### 소제목, **굵게**, - 글머리표)으로 읽기 좋게 구조화하되 과도하게 길지 않게 하라.\n\n[1. 요약]\n${ctx.text}\n\n[2. 현재 화면에 표시된 리포트 내용]\n${pageText()}\n\n[3. 원천 집계 데이터 JSON]\n${rawContext()}\n\n${RAW_LEGEND}\n\n[리그 평균 참고] wOBA ${f3(LG.woba)} · K% ${pr(LG.k)} · BB% ${pr(LG.bb)} · Whiff ${pr(LG.whiff)} · Chase ${pr(LG.chase)}\n[지표 방향] 투수: 피wOBA·BB% 낮을수록, K%·Whiff·CSW·Chase유도 높을수록 좋음. RV/100은 투수 구종 음수가 좋음.`;
   const msgs=[{role:"system",content:sys},...chat.hist.slice(-10),{role:"user",content:q}];
   const el=addMsg("ai","…");
   try{
@@ -951,14 +971,14 @@ async function chatSend(){
           const d=s.slice(5).trim(); if(!d||d==="[DONE]") continue;
           try{ const j=JSON.parse(d);
             const c=(j.choices&&j.choices[0]&&(j.choices[0].delta?.content??j.choices[0].message?.content))||"";
-            if(c){ acc+=c; el.textContent=acc; scrollMsgs(); }
+            if(c){ acc+=c; setAi(el,acc); scrollMsgs(); }
           }catch(e){}
         }
       }
     } else {
       const j=await res.json();
       acc=(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||"";
-      el.textContent=acc||"(빈 응답)";
+      if(acc) setAi(el,acc); else el.textContent="(빈 응답)";
     }
     if(!acc) el.textContent="(빈 응답)";
     chat.hist.push({role:"user",content:q},{role:"assistant",content:acc});

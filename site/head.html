@@ -301,7 +301,15 @@ td.heat{font-weight:600}
 .chat-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;overscroll-behavior:contain}
 .msg{max-width:88%;border-radius:12px;padding:9px 13px;font-size:12.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
 .msg.user{align-self:flex-end;background:var(--accent);color:var(--accent-ink);border-bottom-right-radius:4px}
-.msg.ai{align-self:flex-start;background:var(--surface2);color:var(--ink);border-bottom-left-radius:4px}
+.msg.ai{align-self:flex-start;background:var(--surface2);color:var(--ink);border-bottom-left-radius:4px;white-space:normal}
+.msg.ai .md-h{font-weight:700;font-size:12.5px;margin:6px 0 3px;color:var(--ink)}
+.msg.ai .md-p{margin:0 0 2px}
+.msg.ai .md-gap{height:7px}
+.msg.ai ul,.msg.ai ol{margin:2px 0 6px;padding-left:17px;display:flex;flex-direction:column;gap:4px}
+.msg.ai li{line-height:1.6}
+.msg.ai li::marker{color:var(--muted)}
+.msg.ai b{font-weight:700}
+.msg.ai code{background:var(--surface);border:1px solid var(--grid);border-radius:4px;padding:0 4px;font-size:11px}
 .msg.err{align-self:stretch;background:var(--bd-soft);color:var(--bd);font-size:11.5px}
 .msg.sys{align-self:center;color:var(--muted);font-size:11px;background:transparent;text-align:center}
 .chat-form{display:flex;gap:8px;padding:12px 16px 8px;border-top:1px solid var(--grid)}
