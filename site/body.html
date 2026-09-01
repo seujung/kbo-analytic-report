@@ -54,7 +54,12 @@
   <div class="chat-cfg" id="chatCfg" hidden>
     <div class="cfg-note" id="cfgEnvNote" hidden></div>
     <label>API Key <input id="cfgKey" type="password" placeholder="Google AI Studio API Key (.env 미설정 시)"></label>
-    <label>모델 <input id="cfgModel" type="text" placeholder="gemini-3.5-flash-lite"></label>
+    <label>모델 <select id="cfgModel">
+      <option value="">.env/기본값 사용</option>
+      <option value="gemini-3.7-flash">gemini-3.7-flash</option>
+      <option value="gemini-3.6-flash">gemini-3.6-flash</option>
+      <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite</option>
+    </select></label>
     <label>Base URL <input id="cfgBase" type="text" placeholder="https://generativelanguage.googleapis.com/v1beta/openai"></label>
     <div class="cfg-row"><button id="cfgReset" type="button" class="ghost">브라우저 저장값 초기화</button><button id="cfgSave">저장</button></div>
   </div>

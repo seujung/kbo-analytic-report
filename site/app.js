@@ -1017,8 +1017,13 @@ function initChat(){
       note.innerHTML=`현재 적용 — 키: <b>${cfg.src.key}</b>${cfg.key?` (…${esc(cfg.key.slice(-4))})`:""} · 모델: <b>${esc(cfg.model)}</b> (${cfg.src.model}) · Base: ${cfg.src.base}<br>여기서 저장하면 .env 값보다 우선 적용되고, <b>빈 칸으로 저장하면 .env 값으로 복귀</b>합니다.`;
       $("#cfgKey").value=lsGet("glm_key")||"";
       $("#cfgKey").placeholder=GLMCFG.key?`(.env 키 사용 중 — 바꾸려면 새 키 입력)`:"API Key";
-      $("#cfgModel").value=lsGet("glm_model")||"";
-      $("#cfgModel").placeholder=(GLMCFG.model||"gemini-3.5-flash-lite")+" (.env/기본값)";
+      const mSel=$("#cfgModel");
+      mSel.options[0].textContent=`.env/기본값 사용 (${GLMCFG.model||"gemini-3.5-flash-lite"})`;
+      const ovm=lsGet("glm_model")||"";
+      if(ovm && ![...mSel.options].some(o=>o.value===ovm)){
+        const o=document.createElement("option"); o.value=ovm; o.textContent=ovm+" (직접 설정됨)"; mSel.appendChild(o);
+      }
+      mSel.value=ovm;
       $("#cfgBase").value=lsGet("glm_base")||"";
       $("#cfgBase").placeholder=(GLMCFG.base||GLM_DEFAULT_BASE)+" (.env/기본값)";
     }
