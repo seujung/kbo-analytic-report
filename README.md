@@ -1,12 +1,22 @@
 # KBO 나인존 리포트 (NineZone Report)
 
 네이버 스포츠의 KBO 투구 추적 데이터를 수집하고, 9분할 스트라이크 존 기반 세이버메트릭스로
-투수/타자를 분석하는 웹 리포트를 생성·배포하는 프로젝트입니다.
+투수/타자를 분석하는 웹 리포트를 생성해 로컬에서 열람하는 프로젝트입니다.
 
-- **배포 (GitHub Pages):** https://seujung.github.io/kbo-analytic-report/ — 아래 [3단계](#3단계--github-pages-배포) 참고
-- **Claude 아티팩트 (대안):** https://claude.ai/code/artifact/996926d2-66bb-4c06-9ea3-7b72c24f7ce7
+- **열람 (로컬):** `python site/build.py` 실행 후 `docs/index.html`을 브라우저로 열기 — 아래 [3단계](#3단계--로컬-배포) 참고
+- **Claude 아티팩트 (공유용 대안):** https://claude.ai/code/artifact/996926d2-66bb-4c06-9ea3-7b72c24f7ce7
 - **탭 구성:** 투수 · 타자 (개인 리포트, 투수는 투구 패턴 분석 포함) / 리그 분석 (평균 대비 상위·하위, 구종 랭킹) / 가상 매칭 (상대 전적 + 대응 전략)
 - **현재 집계 범위:** 2026-03-28 ~ 2026-08-30, 576경기, 177,347구 (투수 198명 · 타자 175명, 각 200구 이상)
+
+## 스크린샷
+
+**투수 리포트** — 리그 백분위 · 월별 흐름 · 구종 아스널 + AI 분석 챗
+
+![투수 리포트 화면](image/1.png)
+
+**가상 매칭** — 상대 전적 · 구종 매치업 · 존 매치업 · 대응 전략 + AI 분석 챗
+
+![가상 매칭 화면](image/2.png)
 
 ## 저장소 구조
 
@@ -32,9 +42,10 @@ baseball/
 │   ├── app.js                # 앱 로직 (JSON은 __DATA__ 등 플레이스홀더로 임베드)
 │   ├── logos/                # 구단 로고 파일 (선택) — 빌드 시 자동 임베드
 │   └── build.py              # 템플릿 + JSON(+로고) → docs/index.html 생성
-├── docs/                     # GitHub Pages 배포 대상 (Settings에서 main /docs 지정)
+├── docs/                     # 빌드 산출물 (로컬 열람용 — 브라우저로 index.html 열기)
 │   ├── index.html            # 빌드된 단일 파일 리포트 (~1.6MB, 의존성 없음)
 │   └── .nojekyll
+├── image/                    # README용 스크린샷
 ├── .gitignore                # output 원본·세션 쿠키·캐시 제외
 └── README.md
 ```
@@ -81,57 +92,46 @@ python output/_analysis/agg5.py    # 선수·리그 월별 집계          → m
 
 `agg2~5`는 `df_cache.pkl`을 읽으므로 새 경기를 수집했다면 반드시 `agg.py`부터 다시 실행합니다.
 
-## 3단계 — GitHub Pages 배포
+## 3단계 — 로컬 배포
 
-리포트는 집계 JSON 3개를 단일 HTML에 임베드한 정적 페이지입니다.
-빌드 스크립트가 `docs/index.html`을 생성하고, GitHub Pages가 `docs/` 폴더를 그대로 서빙합니다.
-서버·프레임워크·외부 의존성이 없습니다 (폰트만 Google Fonts 로드).
+리포트는 집계 JSON을 단일 HTML에 임베드한 정적 페이지입니다.
+빌드 스크립트가 `docs/index.html`을 생성하며, 이 파일 하나만 있으면
+서버·프레임워크·외부 의존성 없이 동작합니다 (폰트만 Google Fonts 로드).
 
-### 최초 1회 설정
+> **GitHub Pages 배포는 권장하지 않습니다.** AI 분석 챗 때문에 기본 빌드가 `.env`의 API 키를
+> `docs/index.html`에 주입하는 구조라, 공개 저장소에 그대로 푸시하면 키가 노출됩니다.
+> 비공식 API 기반 집계 데이터가 공개 페이지로 서빙되는 문제도 있어 **로컬 열람을 기본**으로 합니다.
 
-이 저장소는 이미 `https://github.com/seujung/kbo-analytic-report` 에 연결되어 있으므로 푸시만 하면 됩니다.
+### 열람 방법
 
 ```bash
-cd ~/repo/kbo-analytic-report
-git push origin dev        # 현재 브랜치(dev) 푸시
+python site/build.py       # docs/index.html 생성 (.env가 있으면 AI 챗 키 주입)
+open docs/index.html       # 브라우저로 바로 열기 (macOS)
 ```
 
-그다음 GitHub 저장소 페이지에서 **Settings → Pages → Build and deployment**:
-- Source: **Deploy from a branch**
-- Branch: **dev** (main으로 운영하려면 dev를 main에 병합 후 main 선택), 폴더: **/docs** → Save
+파일을 직접 열어도 동작하지만, 브라우저 보안 정책 문제가 있으면 간단한 로컬 서버로 띄웁니다:
 
-1~2분 뒤 https://seujung.github.io/kbo-analytic-report/ 에서 리포트가 열립니다.
-(비공개 저장소여도 Pages 사용은 가능하지만, Pages 사이트 자체는 공개됩니다.)
+```bash
+python -m http.server 8000 -d docs
+# → http://localhost:8000 접속
+```
 
-### 데이터 갱신 → 재배포 루틴
+### 데이터 갱신 루틴
 
 ```bash
 python naver_kbo_collect.py 2026-08-31          # ① 새 경기 수집
-python output/_analysis/agg.py                  # ② 집계 (4개 순서대로)
+python output/_analysis/agg.py                  # ② 집계 (5개 순서대로)
 python output/_analysis/agg2.py
 python output/_analysis/agg3.py
 python output/_analysis/agg4.py
 python output/_analysis/agg5.py
-python site/build.py                            # ③ docs/index.html 재빌드
-git add output/_analysis/*.json docs/index.html # ④ 커밋 & 푸시 → 자동 재배포
-git commit -m "데이터 갱신: ~2026-08-31"
-git push origin dev
+python site/build.py                            # ③ docs/index.html 재빌드 → 브라우저 새로고침
 ```
 
-푸시 후 1~2분이면 Pages에 반영됩니다.
-디자인·기능을 수정할 때는 `site/`의 템플릿을 고친 뒤 ③~④만 다시 하면 됩니다.
+디자인·기능을 수정할 때는 `site/`의 템플릿을 고친 뒤 ③만 다시 실행하면 됩니다.
 
-### 구단 로고 넣기 (선택)
-
-`site/logos/` 폴더에 팀 이름으로 이미지 파일을 넣고 다시 빌드(③)하면 자동으로 페이지에 임베드됩니다.
-
-- 파일명: 리포트의 팀 표기 그대로 — `KIA.png`, `두산.png`, `LG.png`, `삼성.jpg`, `SSG.png`, `롯데.png`, `NC.png`, `KT.png`, `키움.png`, `한화.png`
-- 별칭도 인식: `엘지`→LG, `기아`→KIA, `엔씨`→NC, `케이티`→KT, `베어스`→두산, `트윈스`→LG, `라이온즈`→삼성 등
-- png/jpg/webp/gif 지원, 빌드 시 96px로 리사이즈되어 용량 부담 없음 (Pillow 필요: `pip install pillow`)
-- 파일이 없는 팀은 구단 브랜드 컬러 모노그램 배지로 표시됩니다
-
-Claude 아티팩트 버전을 함께 쓰는 경우, 이 저장소가 연결된 Claude 세션에서
-"나인존 리포트 아티팩트 업데이트해줘"라고 요청하면 같은 아티팩트 URL로 재게시됩니다.
+원격 저장소에 코드를 백업(push)하는 경우, 반드시 `python site/build.py --public`으로 재빌드해서
+**키가 없는 `docs/index.html`을 커밋**하세요 (아래 [AI 분석 챗](#ai-분석-챗-google-gemini-api) 주의사항 참고).
 
 ## AI 분석 챗 (Google Gemini API)
 
@@ -165,11 +165,3 @@ AI 모델과 대화할 수 있습니다. 엔드포인트는 Google Gemini API의
 - **가상 매칭 우위 판정** — 구종별 (리그 wOBA − 투수 피wOBA) + (리그 wOBA − 타자 wOBA) + 0.35×헛스윙 편차, ±0.045 기준
 - **투구 패턴** — 카운트는 투구 직전 기준, 시퀀스는 같은 타석 내 직전→다음 구종(행 정규화), 20구 미만 구종 제외
 - **구단 배지** — 공식 로고가 아닌 구단 브랜드 컬러 기반 모노그램
-
-## 주의사항
-
-- **`statiz_session.json`(로그인 쿠키)은 절대 커밋하지 마세요.** `.gitignore`에 포함되어 있지만, 실수로 `git add -f` 하지 않도록 주의하세요.
-- GitHub Pages에 배포하면 **집계 JSON과 리포트가 공개**됩니다(비공개 저장소여도 Pages 사이트 자체는 공개). 수집 데이터는 비공식 API 기반이므로 개인 연구 범위를 벗어난 공개·배포에 유의하세요.
-- 수집 원본(`output/` 날짜 폴더, 약 200MB)과 `df_cache.pkl`(약 48MB)은 `.gitignore`로 제외되어 저장소에 올라가지 않습니다. 원본 보존이 필요하면 별도 백업을 권장합니다.
-- wOBA 가중치와 카운트별 기대득점은 MLB 기반 일반 근사값으로, KBO 정밀 계수와는 차이가 있을 수 있습니다.
-- 타구 속도/발사각 데이터가 없어 타구 질 평가는 결과 기반(wOBA/BABIP)으로만 이루어집니다.
