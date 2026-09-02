@@ -31,6 +31,7 @@ baseball/
 │   │   ├── {gameId}_players.csv   # 선수 ID-이름 매핑
 │   │   └── {gameId}_raw.json      # 원본 JSON 백업
 │   └── _analysis/            # 2단계: 분석 집계 (스크립트·결과 JSON은 git 추적)
+│       ├── run_all.py        # agg.py → agg5.py 를 순서대로 한 번에 실행 (+ 선택: 리포트 빌드)
 │       ├── agg.py            # 공통 전처리 (존 판정, 타석 결과, RV) → df_cache.pkl
 │       ├── agg2.py           # 선수별 집계 → aggregate.json
 │       ├── agg3.py           # 상대 전적 집계 → matchups.json
@@ -69,12 +70,22 @@ python naver_kbo_collect.py 2026-08-01 2026-08-30   # 날짜 범위
 
 ## 2단계 — 분석 집계
 
-수집이 끝나면 `output/_analysis/`의 스크립트 4개를 **순서대로** 실행합니다.
-경로는 스크립트 위치 기준이라 어느 디렉터리에서 실행해도 됩니다.
+수집이 끝나면 `output/_analysis/`의 집계 스크립트 5개를 **순서대로** 실행합니다.
+`run_all.py`가 이 순서를 대신 처리하며, 경로는 스크립트 위치 기준이라 어느 디렉터리에서 실행해도 됩니다.
 
 ```bash
 pip install pandas numpy
 
+python output/_analysis/run_all.py                   # 5단계 전체 실행 (전 경기 기준 약 20초)
+python output/_analysis/run_all.py --skip-cache      # agg.py 생략 — 수집 데이터 변경 없이 agg2~5만 다시 돌릴 때
+python output/_analysis/run_all.py --build           # 집계 후 site/build.py 까지 이어서 실행
+python output/_analysis/run_all.py --build --public  # 빌드 시 API 키 미포함 (push 전용)
+```
+
+중간 단계가 실패하면 그 자리에서 멈추고 종료 코드 1을 반환하므로, 이후 단계가 깨진 캐시로 실행되는 일은 없습니다.
+각 단계를 개별로 실행하려면 아래처럼 직접 호출합니다.
+
+```bash
 python output/_analysis/agg.py     # 전 경기 로드 + 공통 전처리 → df_cache.pkl (~5초)
 python output/_analysis/agg2.py    # 선수별 구종×존 집계        → aggregate.json (~650KB)
 python output/_analysis/agg3.py    # 투수×타자 상대 전적         → matchups.json  (~740KB)
@@ -90,7 +101,8 @@ python output/_analysis/agg5.py    # 선수·리그 월별 집계          → m
 | `agg4.py` | 카운트별 구종 선택(12분류), 타석 내 구종 시퀀스 전이, 좌/우타자별 구사율 | `patterns.json` |
 | `agg5.py` | 선수별·리그 월별 성적 (월별 흐름 카드, 월별 리그 트렌드에 사용) | `monthly.json` |
 
-`agg2~5`는 `df_cache.pkl`을 읽으므로 새 경기를 수집했다면 반드시 `agg.py`부터 다시 실행합니다.
+`agg2~5`는 `df_cache.pkl`을 읽으므로 새 경기를 수집했다면 반드시 `agg.py`부터 다시 실행합니다
+(`run_all.py`를 옵션 없이 실행하면 항상 `agg.py`부터 시작하고, `df_cache.pkl`이 없으면 `--skip-cache`를 줘도 자동으로 `agg.py`부터 실행합니다).
 
 ## 3단계 — 로컬 배포
 
@@ -120,18 +132,15 @@ python -m http.server 8000 -d docs
 
 ```bash
 python naver_kbo_collect.py 2026-08-31          # ① 새 경기 수집
-python output/_analysis/agg.py                  # ② 집계 (5개 순서대로)
-python output/_analysis/agg2.py
-python output/_analysis/agg3.py
-python output/_analysis/agg4.py
-python output/_analysis/agg5.py
+python output/_analysis/run_all.py              # ② 집계 5단계 일괄 실행
 python site/build.py                            # ③ docs/index.html 재빌드 → 브라우저 새로고침
 ```
 
+②와 ③은 `python output/_analysis/run_all.py --build` 한 줄로 합칠 수 있습니다.
 디자인·기능을 수정할 때는 `site/`의 템플릿을 고친 뒤 ③만 다시 실행하면 됩니다.
 
-원격 저장소에 코드를 백업(push)하는 경우, 반드시 `python site/build.py --public`으로 재빌드해서
-**키가 없는 `docs/index.html`을 커밋**하세요 (아래 [AI 분석 챗](#ai-분석-챗-google-gemini-api) 주의사항 참고).
+원격 저장소에 코드를 백업(push)하는 경우, 반드시 `python site/build.py --public`
+(또는 `run_all.py --build --public`)으로 재빌드해서 **키가 없는 `docs/index.html`을 커밋**하세요 (아래 [AI 분석 챗](#ai-분석-챗-google-gemini-api) 주의사항 참고).
 
 ## AI 분석 챗 (Google Gemini API)
 
